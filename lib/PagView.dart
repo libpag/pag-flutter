@@ -14,7 +14,7 @@ class PagView extends StatefulWidget {
 class _PagViewState extends State<PagView> {
 
   bool hasLoadTexture = false;
-  int mainTexture = -1;
+  int textureId = -1;
   double width = 0, height = 0;
 
   String pagName;
@@ -30,12 +30,20 @@ class _PagViewState extends State<PagView> {
 
   void newTexture() async {
     dynamic r =  await FlutterPagPlugin.getChannel().invokeMethod('initPag', {"pagName":pagName, "repeatCount":10});
-    mainTexture = r["textureId"];
+    textureId = r["textureId"];
     width = r["width"];
     height = r["height"];
     setState(() {
       hasLoadTexture = true;
     });
+  }
+
+  void start() async {
+    FlutterPagPlugin.getChannel().invokeMethod('start', {"textureId":textureId});
+  }
+
+  void stop() async {
+    FlutterPagPlugin.getChannel().invokeMethod('stop', {"textureId":textureId});
   }
 
   @override
@@ -45,7 +53,7 @@ class _PagViewState extends State<PagView> {
         // color: Colors.red,
           width: width/2,
           height: height/2,
-          child: Texture(textureId: mainTexture)
+          child: Texture(textureId: textureId)
       );
     }else{
       return Container();

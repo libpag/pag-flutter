@@ -21,6 +21,8 @@ typedef void(^FrameUpdateCallback)(void);
 
 - (void)startRender;
 
+- (void)stopRender;
+
 - (void)setRepeatCount:(int)repeatCount;
 
 @end

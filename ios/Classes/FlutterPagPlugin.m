@@ -3,7 +3,9 @@
 
 @interface FlutterPagPlugin()
 
+@property(nonatomic, weak) NSObject<FlutterTextureRegistry>* textures;
 
+@property (nonatomic, strong) NSMutableDictionary *renderMap;
 
 @end
 
@@ -13,6 +15,7 @@
       methodChannelWithName:@"flutter_pag_plugin"
             binaryMessenger:[registrar messenger]];
   FlutterPagPlugin* instance = [[FlutterPagPlugin alloc] init];
+    instance.textures = registrar.textures;
   [registrar addMethodCallDelegate:instance channel:channel];
 }
 
@@ -27,16 +30,19 @@
           return;
       }
       NSString* pagName = arguments[@"pagName"];
-      int repeatCount = [arguments intValueForKey:@"repeatCount" default:-1];
+      int repeatCount = -1;
+      if(arguments[@"repeatCount"]){
+          repeatCount = [[arguments objectForKey:@"repeatCount"] intValue];
+      }
 
       __block int64_t textureId = -1;
-
-      TRouterEngine *engine = [[TRouterApplication shared] defaultEngine];
+      
+//      TRouterEngine *engine = [[TRouterApplication shared] defaultEngine];
       TGFlutterPagRender *render = [[TGFlutterPagRender alloc] initWithPagName:pagName frameUpdateCallback:^{
-          [[[TRouterApplication shared] defaultEngine].engine textureFrameAvailable:textureId];
+//          [[[TRouterApplication shared] defaultEngine].engine textureFrameAvailable:textureId];
       }];
       [render setRepeatCount:repeatCount];
-      textureId = [engine.engine registerTexture:render];
+      textureId = [self.textures registerTexture:render];
       if(_renderMap == nil){
         _renderMap = [[NSMutableDictionary alloc] init];
       }
@@ -45,22 +51,22 @@
   } else if([@"start" isEqualToString:call.method]){
     NSNumber* textureId = arguments[@"textureId"];
     if(textureId == nil){
-        result();
+        result(@{});
         return;
     }
-    TGFlutterPagRender *render = [_renderMap objectForKey:@(textureId)];
+    TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
     [render startRender];
-    result();
+    result(@{});
   } else if([@"stop" isEqualToString:call.method]){
     NSNumber* textureId = arguments[@"textureId"];
     if(textureId == nil){
-       result();
+       result(@{});
        return;
     }
-    TGFlutterPagRender *render = [_renderMap objectForKey:@(textureId)];
+    TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
     [render stopRender];
-    [_renderMap removeObjectForKey:@(textureId)];
-    result();
+    [_renderMap removeObjectForKey:textureId];
+      result(@{});
   } else {
     result(FlutterMethodNotImplemented);
   }
