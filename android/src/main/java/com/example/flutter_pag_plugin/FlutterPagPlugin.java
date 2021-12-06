@@ -104,25 +104,16 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         PAGFile composition = PAGFile.Load(context.getAssets(), pagName);
         pagPlayer.init(composition, repeatCount, initProgress);
 
-        double width = call.argument("width");
-        double height = call.argument("height");
-        if (width <= 0) {
-            width = (double) composition.width() / 2;
-        }
-        if (height <= 0) {
-            height = (double) composition.height() / 2;
-        }
-
         SurfaceTexture surfaceTexture = entry.surfaceTexture();
-        surfaceTexture.setDefaultBufferSize((int) width, (int) height);
+        surfaceTexture.setDefaultBufferSize(composition.width(), composition.height());
         PAGSurface pagSurface = PAGSurface.FromSurfaceTexture(surfaceTexture);
         pagPlayer.setSurface(pagSurface);
 
         PagMap.put(String.valueOf(entry.id()), pagPlayer);
         HashMap<String, Object> callback = new HashMap<String, Object>();
         callback.put("textureId", entry.id());
-        callback.put("width", width);
-        callback.put("height", height);
+        callback.put("width", (double) composition.width());
+        callback.put("height", (double) composition.height());
 
         new Handler().post(new Runnable() {
             @Override

@@ -38,10 +38,7 @@ class PagViewState extends State<PagView> {
       repeatCount = PagView.REPEAT_COUNT_DEFAULT;
     }
 
-    dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag',
-        {"pagName": widget.pagName, "repeatCount": widget.repeatCount, "width": widget.width ?? 0, "height": widget.height ?? 0,
-          "initProgress": widget.initProgress ?? 0});
-
+    dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag', {"pagName": widget.pagName, "repeatCount": widget.repeatCount, "initProgress": widget.initProgress ?? 0});
     _textureId = r["textureId"];
     _rawWidth = r["width"] ?? 0;
     _rawHeight = r["height"] ?? 0;
@@ -59,8 +56,8 @@ class PagViewState extends State<PagView> {
     FlutterPagPlugin.getChannel().invokeMethod('stop', {"textureId": _textureId});
   }
 
-  void pase() {
-    FlutterPagPlugin.getChannel().invokeMethod('pase', {"textureId": _textureId});
+  void pause() {
+    FlutterPagPlugin.getChannel().invokeMethod('pause', {"textureId": _textureId});
   }
 
   void setProgress(double progress) {
@@ -70,7 +67,11 @@ class PagViewState extends State<PagView> {
   @override
   Widget build(BuildContext context) {
     if (_hasLoadTexture) {
-      return Container(width: _rawWidth, height: _rawHeight, child: Texture(textureId: _textureId));
+      return Container(
+        width: widget.width ?? (_rawWidth / 2),
+        height: widget.height ?? (_rawHeight / 2),
+        child: Texture(textureId: _textureId),
+      );
     } else {
       return Container();
     }

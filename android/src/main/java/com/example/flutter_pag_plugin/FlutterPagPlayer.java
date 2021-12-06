@@ -5,6 +5,7 @@ import android.view.animation.LinearInterpolator;
 
 import org.libpag.PAGFile;
 import org.libpag.PAGPlayer;
+import org.libpag.PAGScaleMode;
 
 
 public class FlutterPagPlayer extends PAGPlayer {
