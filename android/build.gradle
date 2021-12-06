@@ -28,3 +28,8 @@ android {
         minSdkVersion 16
     }
 }
+
+
+dependencies {
+    implementation "com.tencent.tav:libpag:3.2.8.47"
+}

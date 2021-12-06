@@ -1,62 +1,83 @@
 import 'package:flutter/material.dart';
 
 import 'flutter_pag_plugin.dart';
+import 'package:flutter_mine/function/utils/Log.dart';
 
 class PagView extends StatefulWidget {
+  static const int REPEAT_COUNT_LOOP = -1; //无限循环
+  static const int REPEAT_COUNT_DEFAULT = 1; //无限循环
 
   String pagName;
-  PagView(this.pagName);
+  int? repeatCount;
+  double? width;
+  double? height;
+  double? initProgress; //初始化时的播放进度
+
+  PagView(this.pagName, {this.width, this.height, this.repeatCount, this.initProgress, Key? key}) : super(key: key);
 
   @override
-  _PagViewState createState() => _PagViewState(this.pagName);
+  PagViewState createState() => PagViewState();
 }
 
-class _PagViewState extends State<PagView> {
+class PagViewState extends State<PagView> {
+  bool _hasLoadTexture = false;
+  int _textureId = -1;
 
-  bool hasLoadTexture = false;
-  int textureId = -1;
-  double width = 0, height = 0;
-
-  String pagName;
-
-  _PagViewState(this.pagName){
-    newTexture();
-  }
+  double _rawWidth = 0;
+  double _rawHeight = 0;
 
   @override
   void initState() {
     super.initState();
+    newTexture();
   }
 
   void newTexture() async {
-    dynamic r =  await FlutterPagPlugin.getChannel().invokeMethod('initPag', {"pagName":pagName, "repeatCount":10});
-    textureId = r["textureId"];
-    width = r["width"];
-    height = r["height"];
+    int repeatCount = widget.repeatCount ?? PagView.REPEAT_COUNT_DEFAULT;
+    if (repeatCount <= 0 && repeatCount != PagView.REPEAT_COUNT_LOOP) {
+      repeatCount = PagView.REPEAT_COUNT_DEFAULT;
+    }
+
+    dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag',
+        {"pagName": widget.pagName, "repeatCount": widget.repeatCount, "width": widget.width ?? 0, "height": widget.height ?? 0,
+          "initProgress": widget.initProgress ?? 0});
+
+    _textureId = r["textureId"];
+    _rawWidth = r["width"] ?? 0;
+    _rawHeight = r["height"] ?? 0;
+
     setState(() {
-      hasLoadTexture = true;
+      _hasLoadTexture = true;
     });
   }
 
-  void start() async {
-    FlutterPagPlugin.getChannel().invokeMethod('start', {"textureId":textureId});
+  void start() {
+    FlutterPagPlugin.getChannel().invokeMethod('start', {"textureId": _textureId});
   }
 
-  void stop() async {
-    FlutterPagPlugin.getChannel().invokeMethod('stop', {"textureId":textureId});
+  void stop() {
+    FlutterPagPlugin.getChannel().invokeMethod('stop', {"textureId": _textureId});
+  }
+
+  void pase() {
+    FlutterPagPlugin.getChannel().invokeMethod('pase', {"textureId": _textureId});
+  }
+
+  void setProgress(double progress) {
+    FlutterPagPlugin.getChannel().invokeMethod('setProgress', {"textureId": _textureId, "progress": progress});
   }
 
   @override
   Widget build(BuildContext context) {
-    if(hasLoadTexture){
-      return Container(
-        // color: Colors.red,
-          width: width/2,
-          height: height/2,
-          child: Texture(textureId: textureId)
-      );
-    }else{
+    if (_hasLoadTexture) {
+      return Container(width: _rawWidth, height: _rawHeight, child: Texture(textureId: _textureId));
+    } else {
       return Container();
     }
+  }
+
+  @override
+  void dispose() {
+    FlutterPagPlugin.getChannel().invokeMethod('release', {"textureId": _textureId});
   }
 }
