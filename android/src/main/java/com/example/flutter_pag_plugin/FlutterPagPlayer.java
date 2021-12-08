@@ -15,6 +15,7 @@ public class FlutterPagPlayer extends PAGPlayer {
     private long currentPlayTime = 0L;
     private double progress = 0;
     private double initProgress = 0;
+    private ReleaseListener releaseListener;
 
     public void init(PAGFile file, int repeatCount, double initProgress) {
         setComposition(file);
@@ -58,6 +59,9 @@ public class FlutterPagPlayer extends PAGPlayer {
     @Override
     public void release() {
         super.release();
+        if (releaseListener != null) {
+            releaseListener.onRelease();
+        }
         isRelease = true;
     }
 
@@ -78,4 +82,12 @@ public class FlutterPagPlayer extends PAGPlayer {
             flush();
         }
     };
+
+    public void setReleaseListener(ReleaseListener releaseListener) {
+        this.releaseListener = releaseListener;
+    }
+
+    public interface ReleaseListener {
+        void onRelease();
+    }
 }

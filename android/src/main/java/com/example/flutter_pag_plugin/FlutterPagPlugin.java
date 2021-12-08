@@ -35,7 +35,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     TextureRegistry textureRegistry;
     Context context;
 
-    HashMap<String, FlutterPagPlayer> PagMap = new HashMap();
+    HashMap<String, FlutterPagPlayer> PagMap = new HashMap<String, FlutterPagPlayer>();
 
     public FlutterPagPlugin() {
     }
@@ -99,15 +99,25 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         int repeatCount = call.argument("repeatCount");
         double initProgress = call.argument("initProgress");
 
-        TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
+        final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
         final FlutterPagPlayer pagPlayer = new FlutterPagPlayer();
         PAGFile composition = PAGFile.Load(context.getAssets(), pagName);
         pagPlayer.init(composition, repeatCount, initProgress);
 
         SurfaceTexture surfaceTexture = entry.surfaceTexture();
         surfaceTexture.setDefaultBufferSize(composition.width(), composition.height());
-        PAGSurface pagSurface = PAGSurface.FromSurfaceTexture(surfaceTexture);
+
+        final Surface surface = new Surface(surfaceTexture);
+        final PAGSurface pagSurface = PAGSurface.FromSurface(surface);
         pagPlayer.setSurface(pagSurface);
+        pagPlayer.setReleaseListener(new FlutterPagPlayer.ReleaseListener() {
+            @Override
+            public void onRelease() {
+                entry.release();
+                surface.release();
+                pagSurface.release();
+            }
+        });
 
         PagMap.put(String.valueOf(entry.id()), pagPlayer);
         HashMap<String, Object> callback = new HashMap<String, Object>();
@@ -175,6 +185,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             pagPlayer.release();
         }
         PagMap.clear();
+        channel.setMethodCallHandler(null);
     }
 
     @Override
