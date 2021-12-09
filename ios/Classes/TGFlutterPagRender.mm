@@ -24,6 +24,8 @@
 
 @property(nonatomic, strong)PAGFile* pagFile;
 
+@property(nonatomic, assign)double initProgress;
+
 @end
 
 static int64_t GetCurrentTimeUS() {
@@ -43,37 +45,28 @@ static int64_t GetCurrentTimeUS() {
 }
 
 - (CVPixelBufferRef)copyPixelBuffer {
-    int64_t duration = [_player duration];
-    int64_t timestamp = GetCurrentTimeUS();
-    auto count = (timestamp - start) / duration;
-    double value = 0;
-    if(duration <= 0){
-        duration = 1;
-    }
-    if (_repeatCount >= 0 && count > _repeatCount) {
-        value = 1;
-    } else {
-        double playTime = (timestamp - start) % duration;
-        value = static_cast<double>(playTime) / duration;
-    }
-    [_player setProgress:value];
-    [_player flush];
+    
     CVPixelBufferRef target = [_surface getCVPixelBuffer];
     CVBufferRetain(target);
     return target;
 }
 
-- (instancetype)initWithPagName:(NSString*) pagName frameUpdateCallback:(FrameUpdateCallback)callback;
+- (instancetype)initWithPagName:(NSString*)pagName progress:(double)initProgress frameUpdateCallback:(FrameUpdateCallback)callback
 {
     if (self = [super init]) {
         _callback = callback;
-        
-        NSString* resourcePath = [[NSBundle mainBundle] pathForResource:pagName ofType:@"pag"];
-        _pagFile = [PAGFile Load:resourcePath];
-        _player = [[PAGPlayer alloc] init];
-        [_player setComposition:_pagFile];
-        _surface = [PAGSurface MakeFromGPU:CGSizeMake(_pagFile.width, _pagFile.height)];
-        [_player setSurface:_surface];
+        _initProgress = initProgress;
+        NSString* resourcePath = [[NSBundle mainBundle] pathForResource:pagName ofType:nil];
+        if(resourcePath){
+            _pagFile = [PAGFile Load:resourcePath];
+            _player = [[PAGPlayer alloc] init];
+            [_player setComposition:_pagFile];
+            _surface = [PAGSurface MakeFromGPU:CGSizeMake(_pagFile.width, _pagFile.height)];
+            [_player setSurface:_surface];
+            [_player setProgress:initProgress];
+            [_player flush];
+            _callback();
+        }
     }
     return self;
 }
@@ -89,14 +82,29 @@ static int64_t GetCurrentTimeUS() {
 
 - (void)stopRender
 {
-    if (!_displayLink) {
+    if (_displayLink) {
+        [_displayLink invalidate];
+        _displayLink = nil;
+    }
+    [_player setProgress:_initProgress];
+    [_player flush];
+    _callback();
+}
+
+- (void)pauseRender{
+    if (_displayLink) {
         [_displayLink invalidate];
         _displayLink = nil;
     }
 }
-
 - (void)setRepeatCount:(int)repeatCount{
     _repeatCount = repeatCount;
+}
+
+- (void)setProgress:(double)progress{
+    [_player setProgress:progress];
+    [_player flush];
+    _callback();
 }
 
 - (CGSize)size{
@@ -105,6 +113,27 @@ static int64_t GetCurrentTimeUS() {
 
 - (void)update
 {
+    int64_t duration = [_player duration];
+    int64_t timestamp = GetCurrentTimeUS();
+    auto count = (timestamp - start) / duration;
+    double value = 0;
+    if(duration <= 0){
+        duration = 1;
+    }
+    if (_repeatCount >= 0 && count > _repeatCount) {
+        value = 1;
+    } else {
+        double playTime = (timestamp - start) % duration;
+        value = static_cast<double>(playTime) / duration;
+    }
+    [_player setProgress:value];
+    [_player flush];
     _callback();
+}
+- (void)releaseRender{
+    [self stopRender];
+    _callback = nil;
+    _surface = nil;
+    self.player = nil;
 }
 @end

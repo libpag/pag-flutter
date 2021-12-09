@@ -30,6 +30,10 @@
           return;
       }
       NSString* pagName = arguments[@"pagName"];
+      double initProgress = 0.0;
+      if (arguments[@"initProgress"]) {
+          initProgress = [arguments[@"initProgress"] doubleValue];
+      }
       int repeatCount = -1;
       if(arguments[@"repeatCount"]){
           repeatCount = [[arguments objectForKey:@"repeatCount"] intValue];
@@ -37,9 +41,8 @@
 
       __block int64_t textureId = -1;
       
-//      TRouterEngine *engine = [[TRouterApplication shared] defaultEngine];
-      TGFlutterPagRender *render = [[TGFlutterPagRender alloc] initWithPagName:pagName frameUpdateCallback:^{
-//          [[[TRouterApplication shared] defaultEngine].engine textureFrameAvailable:textureId];
+      TGFlutterPagRender *render = [[TGFlutterPagRender alloc] initWithPagName:pagName progress:initProgress frameUpdateCallback:^{
+           [self.textures textureFrameAvailable:textureId];
       }];
       [render setRepeatCount:repeatCount];
       textureId = [self.textures registerTexture:render];
@@ -65,8 +68,39 @@
     }
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
     [render stopRender];
-    [_renderMap removeObjectForKey:textureId];
       result(@{});
+  } else if([@"pause" isEqualToString:call.method]){
+      NSNumber* textureId = arguments[@"textureId"];
+      if(textureId == nil){
+         result(@{});
+         return;
+      }
+    TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
+    [render pauseRender];
+    result(@{});
+  } else if([@"setProgress" isEqual:call.method]){
+      NSNumber* textureId = arguments[@"textureId"];
+      if(textureId == nil){
+          result(@{});
+          return;
+      }
+      double progress = 0.0;
+      if (arguments[@"progress"]) {
+          progress = [arguments[@"progress"] doubleValue];
+      }
+      TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
+      [render setProgress:progress];
+      result(@{});
+  } else if([@"release" isEqualToString:call.method]){
+      NSNumber* textureId = arguments[@"textureId"];
+      if(textureId == nil){
+         result(@{});
+         return;
+      }
+      TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
+      [render releaseRender];
+      [_renderMap removeObjectForKey:textureId];
+    result(@{});
   } else {
     result(FlutterMethodNotImplemented);
   }
