@@ -17,11 +17,17 @@ typedef void(^FrameUpdateCallback)(void);
 
 @property(nonatomic, readonly) CGSize size;
 
-- (instancetype)initWithPagName:(NSString*) pagName frameUpdateCallback:(FrameUpdateCallback)callback;
+- (instancetype)initWithPagName:(NSString*)pagName progress:(double)initProgress frameUpdateCallback:(FrameUpdateCallback)callback;
 
 - (void)startRender;
 
 - (void)stopRender;
+
+- (void)pauseRender;
+
+- (void)releaseRender;
+
+- (void)setProgress:(double)progress;
 
 - (void)setRepeatCount:(int)repeatCount;
 
