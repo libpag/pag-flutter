@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'flutter_pag_plugin.dart';
-import 'package:flutter_mine/function/utils/Log.dart';
 
 class PagView extends StatefulWidget {
   static const int REPEAT_COUNT_LOOP = -1; //无限循环
