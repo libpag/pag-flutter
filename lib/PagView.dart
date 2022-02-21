@@ -78,6 +78,7 @@ class PagViewState extends State<PagView> {
 
   @override
   void dispose() {
+    super.dispose();
     FlutterPagPlugin.getChannel().invokeMethod('release', {"textureId": _textureId});
   }
 }
