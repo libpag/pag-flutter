@@ -1,6 +1,8 @@
 package com.example.flutter_pag_plugin;
 
 import android.content.Context;
+import android.content.res.AssetFileDescriptor;
+import android.content.res.AssetManager;
 import android.graphics.SurfaceTexture;
 import android.opengl.EGLContext;
 import android.os.Handler;
@@ -34,6 +36,8 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     private MethodChannel channel;
     TextureRegistry textureRegistry;
     Context context;
+    io.flutter.plugin.common.PluginRegistry.Registrar registrar;
+    FlutterPlugin.FlutterAssets flutterAssets;
 
     HashMap<String, FlutterPagPlayer> PagMap = new HashMap<String, FlutterPagPlayer>();
 
@@ -41,12 +45,14 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     public FlutterPagPlugin(io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
+        this.registrar = registrar;
         textureRegistry = registrar.textures();
         context = registrar.context();
     }
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
+        flutterAssets = binding.getFlutterAssets();
         channel = new MethodChannel(binding.getBinaryMessenger(), "flutter_pag_plugin");
         channel.setMethodCallHandler(this);
         context = binding.getApplicationContext();
@@ -101,9 +107,15 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
         final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
         final FlutterPagPlayer pagPlayer = new FlutterPagPlayer();
-        PAGFile composition = PAGFile.Load(context.getAssets(), pagName);
-        pagPlayer.init(composition, repeatCount, initProgress);
+        String assetKey = "";
+        if (registrar != null && pagName != null) {
+            assetKey = registrar.lookupKeyForAsset(pagName);
+        } else if (flutterAssets != null && pagName != null) {
+            assetKey = flutterAssets.getAssetFilePathByName(pagName);
+        }
+        PAGFile composition = PAGFile.Load(context.getAssets(), assetKey);
 
+        pagPlayer.init(composition, repeatCount, initProgress);
         SurfaceTexture surfaceTexture = entry.surfaceTexture();
         surfaceTexture.setDefaultBufferSize(composition.width(), composition.height());
 

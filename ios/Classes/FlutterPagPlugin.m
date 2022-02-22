@@ -5,6 +5,8 @@
 
 @property(nonatomic, weak) NSObject<FlutterTextureRegistry>* textures;
 
+@property(nonatomic, weak) NSObject<FlutterPluginRegistrar>* registrar;
+
 @property (nonatomic, strong) NSMutableDictionary *renderMap;
 
 @end
@@ -16,6 +18,7 @@
             binaryMessenger:[registrar messenger]];
   FlutterPagPlugin* instance = [[FlutterPagPlugin alloc] init];
     instance.textures = registrar.textures;
+    instance.registrar = registrar;
   [registrar addMethodCallDelegate:instance channel:channel];
 }
 
@@ -30,6 +33,7 @@
           return;
       }
       NSString* pagName = arguments[@"pagName"];
+      pagName = [registrar lookupKeyForAsset:pagName];
       double initProgress = 0.0;
       if (arguments[@"initProgress"]) {
           initProgress = [arguments[@"initProgress"] doubleValue];
