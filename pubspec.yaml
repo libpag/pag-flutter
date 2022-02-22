@@ -1,6 +1,6 @@
 name: flutter_pag_plugin
-description: A new Flutter plugin.
-version: 0.0.1
+description: Flutter PAG封装
+version: 1.0.0
 homepage:
 
 environment:
