@@ -7,6 +7,8 @@ import org.libpag.PAGFile;
 import org.libpag.PAGPlayer;
 import org.libpag.PAGScaleMode;
 
+import io.flutter.FlutterInjector;
+
 
 public class FlutterPagPlayer extends PAGPlayer {
 
