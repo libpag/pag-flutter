@@ -33,7 +33,7 @@
           return;
       }
       NSString* pagName = arguments[@"pagName"];
-      pagName = [registrar lookupKeyForAsset:pagName];
+      pagName = [self.registrar lookupKeyForAsset:pagName];
       double initProgress = 0.0;
       if (arguments[@"initProgress"]) {
           initProgress = [arguments[@"initProgress"] doubleValue];
