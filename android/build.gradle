@@ -9,6 +9,7 @@ buildscript {
 
     dependencies {
         classpath 'com.android.tools.build:gradle:4.1.0'
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:1.4.20"
     }
 }
 
@@ -20,6 +21,9 @@ rootProject.allprojects {
 }
 
 apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-kapt'
+apply plugin: 'kotlin-android-extensions'
 
 android {
     compileSdkVersion 30
@@ -33,5 +37,4 @@ android {
 dependencies {
     implementation "com.tencent.tav:libpag:3.2.8.47"
     implementation 'com.jakewharton:disklrucache:2.0.2'
-
 }
