@@ -3,16 +3,21 @@ import 'package:flutter/material.dart';
 import 'flutter_pag_plugin.dart';
 
 class PagView extends StatefulWidget {
-  static const int REPEAT_COUNT_LOOP = -1; //无限循环
-  static const int REPEAT_COUNT_DEFAULT = 1; //无限循环
-
-  String pagName;
-  int? repeatCount;
   double? width;
   double? height;
+
+  int? repeatCount; // 循环次数
+  static const int REPEAT_COUNT_LOOP = -1; //无限循环
+  static const int REPEAT_COUNT_DEFAULT = 1; //默认仅播放一次
+
+  String? assetName; // flutter资源路径，优先级比url高
+  String? url; //动画链接
+
   double? initProgress; //初始化时的播放进度
 
-  PagView(this.pagName, {this.width, this.height, this.repeatCount, this.initProgress, Key? key}) : super(key: key);
+  PagView.network(this.url, {this.width, this.height, this.repeatCount, this.initProgress, Key? key}) : super(key: key);
+
+  PagView.asset(this.assetName, {this.width, this.height, this.repeatCount, this.initProgress, Key? key}) : super(key: key);
 
   @override
   PagViewState createState() => PagViewState();
@@ -37,10 +42,11 @@ class PagViewState extends State<PagView> {
       repeatCount = PagView.REPEAT_COUNT_DEFAULT;
     }
 
-    dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag', {"pagName": widget.pagName, "repeatCount": widget.repeatCount, "initProgress": widget.initProgress ?? 0});
-    _textureId = r["textureId"];
-    _rawWidth = r["width"] ?? 0;
-    _rawHeight = r["height"] ?? 0;
+    dynamic r =
+        await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0});
+    _textureId = r['textureId'];
+    _rawWidth = r['width'] ?? 0;
+    _rawHeight = r['height'] ?? 0;
 
     setState(() {
       _hasLoadTexture = true;
@@ -48,19 +54,19 @@ class PagViewState extends State<PagView> {
   }
 
   void start() {
-    FlutterPagPlugin.getChannel().invokeMethod('start', {"textureId": _textureId});
+    FlutterPagPlugin.getChannel().invokeMethod('start', {'textureId': _textureId});
   }
 
   void stop() {
-    FlutterPagPlugin.getChannel().invokeMethod('stop', {"textureId": _textureId});
+    FlutterPagPlugin.getChannel().invokeMethod('stop', {'textureId': _textureId});
   }
 
   void pause() {
-    FlutterPagPlugin.getChannel().invokeMethod('pause', {"textureId": _textureId});
+    FlutterPagPlugin.getChannel().invokeMethod('pause', {'textureId': _textureId});
   }
 
   void setProgress(double progress) {
-    FlutterPagPlugin.getChannel().invokeMethod('setProgress', {"textureId": _textureId, "progress": progress});
+    FlutterPagPlugin.getChannel().invokeMethod('setProgress', {'textureId': _textureId, 'progress': progress});
   }
 
   @override
@@ -79,6 +85,6 @@ class PagViewState extends State<PagView> {
   @override
   void dispose() {
     super.dispose();
-    FlutterPagPlugin.getChannel().invokeMethod('release', {"textureId": _textureId});
+    FlutterPagPlugin.getChannel().invokeMethod('release', {'textureId': _textureId});
   }
 }
