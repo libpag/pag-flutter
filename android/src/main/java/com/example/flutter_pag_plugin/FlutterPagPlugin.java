@@ -24,6 +24,8 @@ import io.flutter.plugin.common.MethodChannel.Result;
 import io.flutter.plugin.common.PluginRegistry;
 import io.flutter.view.FlutterNativeView;
 import io.flutter.view.TextureRegistry;
+import kotlin.Unit;
+import kotlin.jvm.functions.Function1;
 
 /**
  * FlutterPagPlugin
@@ -74,7 +76,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
         switch (call.method) {
             case "initPag":
-                result.success(initPag(call));
+                initPag(call, result);
                 break;
             case "start":
                 start(call);
@@ -100,20 +102,48 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         }
     }
 
-    private HashMap<String, Object> initPag(MethodCall call) {
-        String pagName = call.argument("pagName");
+    private void initPag(final MethodCall call, final Result result) {
+        String assetName = call.argument("assetName");
+        String url = call.argument("url");
+
+        if (assetName != null) {
+            String assetKey = "";
+            if (registrar != null) {
+                assetKey = registrar.lookupKeyForAsset(assetName);
+            } else if (flutterAssets != null) {
+                assetKey = flutterAssets.getAssetFilePathByName(assetName);
+            }
+
+            if (assetKey == null) {
+                result.error("-1100", "asset资源加载错误", null);
+                return;
+            }
+
+            PAGFile composition = PAGFile.Load(context.getAssets(), assetKey);
+            initPagPlayerAndCallback(composition, call, result);
+        } else if (url != null) {
+            DataLoadHelper.INSTANCE.loadPag(url, new Function1<byte[], Unit>() {
+                @Override
+                public Unit invoke(byte[] bytes) {
+                    if (bytes == null) {
+                        result.error("-1100", "url资源加载错误", null);
+                        return null;
+                    }
+                    initPagPlayerAndCallback(PAGFile.Load(bytes), call, result);
+                    return null;
+                }
+            });
+        } else {
+            result.error("-1100", "未添加资源", null);
+        }
+    }
+
+    private void initPagPlayerAndCallback(PAGFile composition, MethodCall call, Result result) {
         int repeatCount = call.argument("repeatCount");
         double initProgress = call.argument("initProgress");
 
-        final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
         final FlutterPagPlayer pagPlayer = new FlutterPagPlayer();
-        String assetKey = "";
-        if (registrar != null && pagName != null) {
-            assetKey = registrar.lookupKeyForAsset(pagName);
-        } else if (flutterAssets != null && pagName != null) {
-            assetKey = flutterAssets.getAssetFilePathByName(pagName);
-        }
-        PAGFile composition = PAGFile.Load(context.getAssets(), assetKey);
+        final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
 
         pagPlayer.init(composition, repeatCount, initProgress);
         SurfaceTexture surfaceTexture = entry.surfaceTexture();
@@ -143,7 +173,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 pagPlayer.flush();
             }
         });
-        return callback;
+        result.success(callback);
     }
 
     void start(MethodCall call) {
