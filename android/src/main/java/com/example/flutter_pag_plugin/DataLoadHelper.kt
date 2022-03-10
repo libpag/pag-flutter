@@ -15,7 +15,6 @@ import java.security.NoSuchAlgorithmException
 //数据加载器
 object DataLoadHelper {
     private var diskCache: DiskLruCache? = null
-    private var isPagLoading = false
     private val memoryCache by lazy { LruCache<String, ByteArray>(Runtime.getRuntime().maxMemory().toInt() / 500) }
     private const val TAG = "DataLoadHelper"
 
@@ -71,15 +70,6 @@ object DataLoadHelper {
     //硬盘或者网络获取
     @Synchronized
     fun loadPag(src: String, addPag: (ByteArray?) -> Unit) {
-        Log.d(TAG, "loadPag: ")
-        //不要重复加载
-        if (isPagLoading) {
-            Log.e(TAG, "loadPag diskCache edit: return! ")
-            addPag(null)
-            return
-        }
-
-        isPagLoading = true
         //从硬盘缓存中获取
         val key = hashKeyForDisk(src)
         var snapShot: DiskLruCache.Snapshot? = null
@@ -131,18 +121,12 @@ object DataLoadHelper {
 
         Log.d(TAG, "loadPag bytes size: ${bytes?.size}")
         //存储进内存缓存
-        if (bytes != null && bytes!!.isNotEmpty()) {
-            putMemoryCache(src, bytes!!)
-        }
-        addPag(bytes)
-        isPagLoading = false
-    }
-
-    private fun putMemoryCache(key: String, bytes: ByteArray) {
-        if (memoryCache.get(key) == null) {
+        if (bytes != null && bytes!!.isNotEmpty() && memoryCache.get(key) == null) {
             memoryCache.put(key, bytes)
         }
+        addPag(bytes)
     }
+
 
     //下载
     private fun downloadUrlToStream(urlString: String, outputStream: OutputStream): Boolean {
