@@ -12,9 +12,12 @@ import androidx.annotation.NonNull;
 
 import org.libpag.PAGComposition;
 import org.libpag.PAGFile;
+import org.libpag.PAGLayer;
 import org.libpag.PAGSurface;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.MethodCall;
@@ -95,6 +98,9 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 break;
             case "getPlatformVersion":
                 result.success("Android " + android.os.Build.VERSION.RELEASE);
+                break;
+            case "getLayersUnderPoint":
+                result.success(getLayersUnderPoint(call));
                 break;
             default:
                 result.notImplemented();
@@ -211,6 +217,24 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             flutterPagPlayer.stop();
             flutterPagPlayer.release();
         }
+    }
+
+    List<String> getLayersUnderPoint(MethodCall call) {
+        FlutterPagPlayer flutterPagPlayer = getFlutterPagPlayer(call);
+
+        List<String> layerNames = new ArrayList();
+        PAGLayer[] layers = null;
+        if (flutterPagPlayer != null) {
+            layers = flutterPagPlayer.getLayersUnderPoint(((Double) call.argument("x")).floatValue(), ((Double) call.argument("y")).floatValue());
+        }
+
+        if (layers != null) {
+            for (PAGLayer layer : layers) {
+                layerNames.add(layer.layerName());
+            }
+        }
+
+        return layerNames;
     }
 
     FlutterPagPlayer getFlutterPagPlayer(MethodCall call) {

@@ -43,7 +43,7 @@ class PagViewState extends State<PagView> {
     }
 
     dynamic r =
-        await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0});
+    await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0});
     _textureId = r['textureId'];
     _rawWidth = r['width'] ?? 0;
     _rawHeight = r['height'] ?? 0;
@@ -67,6 +67,12 @@ class PagViewState extends State<PagView> {
 
   void setProgress(double progress) {
     FlutterPagPlugin.getChannel().invokeMethod('setProgress', {'textureId': _textureId, 'progress': progress});
+  }
+
+  Future<List<String>> getLayersUnderPoint(double x, double y) async {
+    return (await FlutterPagPlugin.getChannel().invokeMethod('getLayersUnderPoint', {'textureId': _textureId, 'x': x, 'y': y}) as List)
+        .map((e) => e.toString())
+        .toList();
   }
 
   @override
