@@ -51,14 +51,14 @@ static int64_t GetCurrentTimeUS() {
     return target;
 }
 
-- (instancetype)initWithPagName:(NSString*)pagName progress:(double)initProgress frameUpdateCallback:(FrameUpdateCallback)callback
+- (instancetype)initWithPagData:(NSData*)pagData progress:(double)initProgress frameUpdateCallback:(FrameUpdateCallback)callback
 {
     if (self = [super init]) {
         _callback = callback;
         _initProgress = initProgress;
-        NSString* resourcePath = [[NSBundle mainBundle] pathForResource:pagName ofType:nil];
-        if(resourcePath){
-            _pagFile = [PAGFile Load:resourcePath];
+        if(pagData){
+            _pagFile = [PAGFile Load:pagData.bytes size:pagData.length];
+//            _pagFile = [PAGFile Load:resourcePath];
             _player = [[PAGPlayer alloc] init];
             [_player setComposition:_pagFile];
             _surface = [PAGSurface MakeFromGPU:CGSizeMake(_pagFile.width, _pagFile.height)];
@@ -105,6 +105,15 @@ static int64_t GetCurrentTimeUS() {
     [_player setProgress:progress];
     [_player flush];
     _callback();
+}
+
+- (NSArray<NSString *> *)getLayersUnderPoint:(CGPoint)point{
+    NSArray<PAGLayer*>* layers = [_player getLayersUnderPoint:point];
+    NSMutableArray<NSString *> *layerNames = [[NSMutableArray alloc] init];
+    for (PAGLayer *layer in layers) {
+        [layerNames addObject:layer.layerName];
+    }
+    return layerNames;
 }
 
 - (CGSize)size{

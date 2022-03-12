@@ -1,6 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
-
+import 'package:flutter_pag_plugin/PagView.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_pag_plugin/flutter_pag_plugin.dart';
 
@@ -8,13 +9,20 @@ void main() {
   runApp(MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   @override
-  _MyAppState createState() => _MyAppState();
+  Widget build(BuildContext context) {
+    return MaterialApp(home: MyHome(),);
+  }
 }
 
-class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
+class MyHome extends StatefulWidget{
+  @override
+  _MyHomeState createState() => _MyHomeState();
+}
+
+class _MyHomeState extends State<MyHome> {
+  final GlobalKey<PagViewState> pagKey = GlobalKey<PagViewState>();
 
   @override
   void initState() {
@@ -39,21 +47,53 @@ class _MyAppState extends State<MyApp> {
     // setState to update our non-existent appearance.
     if (!mounted) return;
 
-    setState(() {
-      _platformVersion = platformVersion;
-    });
+    // setState(() {
+    //   _platformVersion = platformVersion;
+    // });
   }
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
+    return Scaffold(
         appBar: AppBar(
           title: const Text('Plugin example app'),
+          actions: <Widget>[
+            IconButton(
+              icon: const Icon(Icons.shopping_cart),
+              tooltip: 'Open shopping cart',
+              onPressed: () {
+                Navigator.of(context).push(MaterialPageRoute(builder: (context)=> NextPage()));
+              },
+            ),
+          ],
         ),
         body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+          child: PagView.asset(
+            "data/bg_banner_bmp.pag",
+            width: 300,
+            height: 600,
+            repeatCount: PagView.REPEAT_COUNT_LOOP,
+            initProgress: 0.25,
+            key: pagKey,
+          ),
         ),
+    );
+  }
+}
+
+class NextPage extends StatelessWidget {
+  final GlobalKey<PagViewState> pagKey = GlobalKey<PagViewState>();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: PagView.asset(
+        "data/bg_banner_bmp.pag",
+        width: 300,
+        height: 600,
+        repeatCount: PagView.REPEAT_COUNT_LOOP,
+        initProgress: 0.25,
+        key: pagKey,
       ),
     );
   }

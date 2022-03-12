@@ -28,6 +28,7 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
+  pod 'libpag', :git => 'https://git.woa.com/CameraToolsGroup/pag-ios.git', :tag=> 'dev/v3.2.4.9'
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
 

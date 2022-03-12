@@ -17,7 +17,7 @@ typedef void(^FrameUpdateCallback)(void);
 
 @property(nonatomic, readonly) CGSize size;
 
-- (instancetype)initWithPagName:(NSString*)pagName progress:(double)initProgress frameUpdateCallback:(FrameUpdateCallback)callback;
+- (instancetype)initWithPagData:(NSData*)pagData progress:(double)initProgress frameUpdateCallback:(FrameUpdateCallback)callback;
 
 - (void)startRender;
 
@@ -30,6 +30,8 @@ typedef void(^FrameUpdateCallback)(void);
 - (void)setProgress:(double)progress;
 
 - (void)setRepeatCount:(int)repeatCount;
+
+- (NSArray<NSString *> *)getLayersUnderPoint:(CGPoint)point;
 
 @end
 
