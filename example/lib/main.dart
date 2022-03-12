@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-
+import 'package:flutter_pag_plugin/PagView.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_pag_plugin/flutter_pag_plugin.dart';
 
@@ -14,7 +14,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
-  String _platformVersion = 'Unknown';
+
+  final GlobalKey<PagViewState> pagKey = GlobalKey<PagViewState>();
 
   @override
   void initState() {
@@ -39,9 +40,9 @@ class _MyAppState extends State<MyApp> {
     // setState to update our non-existent appearance.
     if (!mounted) return;
 
-    setState(() {
-      _platformVersion = platformVersion;
-    });
+    // setState(() {
+    //   _platformVersion = platformVersion;
+    // });
   }
 
   @override
@@ -52,7 +53,14 @@ class _MyAppState extends State<MyApp> {
           title: const Text('Plugin example app'),
         ),
         body: Center(
-          child: Text('Running on: $_platformVersion\n'),
+          child: PagView(
+            "data/bg_banner_bmp.pag",
+            width:300,
+            height:600,
+            repeatCount: PagView.REPEAT_COUNT_LOOP,
+            initProgress: 0.25,
+            key: pagKey,
+          ),
         ),
       ),
     );
