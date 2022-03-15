@@ -1,17 +1,13 @@
 package com.example.flutter_pag_plugin;
 
 import android.content.Context;
-import android.content.res.AssetFileDescriptor;
-import android.content.res.AssetManager;
 import android.graphics.SurfaceTexture;
-import android.opengl.EGLContext;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.Surface;
 
 import androidx.annotation.NonNull;
 
-import org.libpag.PAGComposition;
 import org.libpag.PAGFile;
 import org.libpag.PAGLayer;
 import org.libpag.PAGSurface;
@@ -45,7 +41,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     io.flutter.plugin.common.PluginRegistry.Registrar registrar;
     FlutterPlugin.FlutterAssets flutterAssets;
 
-    HashMap<String, FlutterPagPlayer> PagMap = new HashMap<String, FlutterPagPlayer>();
+    HashMap<String, FlutterPagPlayer> layerMap = new HashMap<String, FlutterPagPlayer>();
 
     public FlutterPagPlugin() {
     }
@@ -169,7 +165,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             }
         });
 
-        PagMap.put(String.valueOf(entry.id()), pagPlayer);
+        layerMap.put(String.valueOf(entry.id()), pagPlayer);
         HashMap<String, Object> callback = new HashMap<String, Object>();
         callback.put("textureId", entry.id());
         callback.put("width", (double) composition.width());
@@ -217,7 +213,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     void release(MethodCall call) {
-        FlutterPagPlayer flutterPagPlayer = PagMap.remove(getTextureId(call));
+        FlutterPagPlayer flutterPagPlayer = layerMap.remove(getTextureId(call));
         if (flutterPagPlayer != null) {
             flutterPagPlayer.stop();
             flutterPagPlayer.release();
@@ -230,7 +226,8 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         List<String> layerNames = new ArrayList();
         PAGLayer[] layers = null;
         if (flutterPagPlayer != null) {
-            layers = flutterPagPlayer.getLayersUnderPoint(((Double) call.argument("x")).floatValue(), ((Double) call.argument("y")).floatValue());
+            layers = flutterPagPlayer.getLayersUnderPoint(
+                    ((Double) call.argument("x")).floatValue(), ((Double) call.argument("y")).floatValue());
         }
 
         if (layers != null) {
@@ -243,7 +240,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     FlutterPagPlayer getFlutterPagPlayer(MethodCall call) {
-        return PagMap.get(getTextureId(call));
+        return layerMap.get(getTextureId(call));
     }
 
     String getTextureId(MethodCall call) {
@@ -252,10 +249,10 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
     //插件销毁
     public void onDestroy() {
-        for (FlutterPagPlayer pagPlayer : PagMap.values()) {
+        for (FlutterPagPlayer pagPlayer : layerMap.values()) {
             pagPlayer.release();
         }
-        PagMap.clear();
+        layerMap.clear();
         channel.setMethodCallHandler(null);
     }
 
