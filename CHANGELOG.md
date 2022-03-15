@@ -1,4 +1,4 @@
-## 1.0.1
+## 1.0.2
 * 支持网络链接下载，通过PagView.network构造
 * 添加LruCache逻辑
 * 新增autoPlay参数用于自动播放，新增getLayersUnderPoint用于获取触摸图层
