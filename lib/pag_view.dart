@@ -2,30 +2,36 @@ import 'package:flutter/material.dart';
 
 import 'flutter_pag_plugin.dart';
 
-class PagView extends StatefulWidget {
+class PAGView extends StatefulWidget {
   double? width;
   double? height;
 
-  int? repeatCount; // 循环次数
+  // TODO: flutter资源路径，优先级比url高
+  String? assetName;
+
+  // TODO: 网络资源，动画链接
+  String? url;
+
+  // TODO: 初始化时播放进度
+  double? initProgress;
+
+  // TODO: 初始化后自动播放
+  bool autoPlay;
+
+  // TODO: 循环次数
+  int? repeatCount;
   static const int REPEAT_COUNT_LOOP = -1; //无限循环
   static const int REPEAT_COUNT_DEFAULT = 1; //默认仅播放一次
 
-  String? assetName; // flutter资源路径，优先级比url高
-  String? url; //动画链接
+  PAGView.network(this.url, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, Key? key}) : super(key: key);
 
-  double? initProgress; //初始化时的播放进度
-
-  bool autoPlay; //是否自动播放
-
-  PagView.network(this.url, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay=false, Key? key}) : super(key: key);
-
-  PagView.asset(this.assetName, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay=false, Key? key}) : super(key: key);
+  PAGView.asset(this.assetName, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, Key? key}) : super(key: key);
 
   @override
-  PagViewState createState() => PagViewState();
+  PAGViewState createState() => PAGViewState();
 }
 
-class PagViewState extends State<PagView> {
+class PAGViewState extends State<PAGView> {
   bool _hasLoadTexture = false;
   int _textureId = -1;
 
@@ -39,13 +45,15 @@ class PagViewState extends State<PagView> {
   }
 
   void newTexture() async {
-    int repeatCount = widget.repeatCount ?? PagView.REPEAT_COUNT_DEFAULT;
-    if (repeatCount <= 0 && repeatCount != PagView.REPEAT_COUNT_LOOP) {
-      repeatCount = PagView.REPEAT_COUNT_DEFAULT;
+    int repeatCount = widget.repeatCount ?? PAGView.REPEAT_COUNT_DEFAULT;
+    if (repeatCount <= 0 && repeatCount != PAGView.REPEAT_COUNT_LOOP) {
+      repeatCount = PAGView.REPEAT_COUNT_DEFAULT;
     }
 
     dynamic r =
-    await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, "autoPlay": widget.autoPlay});
+    await FlutterPagPlugin.getChannel().invokeMethod(
+        'initPag',
+        {'assetName': widget.assetName, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
     _textureId = r['textureId'];
     _rawWidth = r['width'] ?? 0;
     _rawHeight = r['height'] ?? 0;
