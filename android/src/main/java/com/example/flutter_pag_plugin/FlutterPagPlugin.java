@@ -6,6 +6,7 @@ import android.content.res.AssetManager;
 import android.graphics.SurfaceTexture;
 import android.opengl.EGLContext;
 import android.os.Handler;
+import android.os.Looper;
 import android.view.Surface;
 
 import androidx.annotation.NonNull;
@@ -145,8 +146,9 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     private void initPagPlayerAndCallback(PAGFile composition, MethodCall call, Result result) {
-        int repeatCount = call.argument("repeatCount");
-        double initProgress = call.argument("initProgress");
+        final int repeatCount = call.argument("repeatCount");
+        final double initProgress = call.argument("initProgress");
+        final boolean autoPlay = call.argument("autoPlay");
 
         final FlutterPagPlayer pagPlayer = new FlutterPagPlayer();
         final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
@@ -173,10 +175,13 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         callback.put("width", (double) composition.width());
         callback.put("height", (double) composition.height());
 
-        new Handler().post(new Runnable() {
+        new Handler(Looper.getMainLooper()).post(new Runnable() {
             @Override
             public void run() {
                 pagPlayer.flush();
+                if (autoPlay) {
+                    pagPlayer.start();
+                }
             }
         });
         result.success(callback);
