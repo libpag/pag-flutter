@@ -7,7 +7,7 @@ Flutter侧通过PagView来使用动画
 ### 使用本地资源
 ```
 PagView.asset(
-    "assets/xxx.pag",
+    "assets/xxx.pag", //flutter侧资源路径
     repeatCount: PagView.REPEAT_COUNT_LOOP, // 循环次数
     initProgress: 0.25, // 初始进度
     key: pagKey,  // 利用key进行主动调用
@@ -17,7 +17,7 @@ PagView.asset(
 ### 使用网络资源
 ```
 PagView.url(
-    "xxxx",
+    "xxxx", //网络链接
     repeatCount: PagView.REPEAT_COUNT_LOOP, // 循环次数
     initProgress: 0.25, // 初始进度
     key: pagKey,  // 利用key进行主动调用
