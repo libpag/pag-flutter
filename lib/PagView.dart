@@ -15,9 +15,11 @@ class PagView extends StatefulWidget {
 
   double? initProgress; //初始化时的播放进度
 
-  PagView.network(this.url, {this.width, this.height, this.repeatCount, this.initProgress, Key? key}) : super(key: key);
+  bool autoPlay; //是否自动播放
 
-  PagView.asset(this.assetName, {this.width, this.height, this.repeatCount, this.initProgress, Key? key}) : super(key: key);
+  PagView.network(this.url, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay=false, Key? key}) : super(key: key);
+
+  PagView.asset(this.assetName, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay=false, Key? key}) : super(key: key);
 
   @override
   PagViewState createState() => PagViewState();
@@ -43,7 +45,7 @@ class PagViewState extends State<PagView> {
     }
 
     dynamic r =
-    await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0});
+    await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, "autoPlay": widget.autoPlay});
     _textureId = r['textureId'];
     _rawWidth = r['width'] ?? 0;
     _rawHeight = r['height'] ?? 0;

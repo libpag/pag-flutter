@@ -17,7 +17,7 @@ typedef void(^FrameUpdateCallback)(void);
 
 @property(nonatomic, readonly) CGSize size;
 
-- (instancetype)initWithPagData:(NSData*)pagData progress:(double)initProgress frameUpdateCallback:(FrameUpdateCallback)callback;
+- (instancetype)initWithPagData:(NSData*)pagData progress:(double)initProgress autoPlay:(BOOL)autoPlay frameUpdateCallback:(FrameUpdateCallback)callback;
 
 - (void)startRender;
 

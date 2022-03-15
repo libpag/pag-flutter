@@ -44,6 +44,11 @@
           repeatCount = [[arguments objectForKey:@"repeatCount"] intValue];
       }
       
+      BOOL autoPlay = NO;
+      if(arguments[@"autoPlay"]){
+          autoPlay = [[arguments objectForKey:@"autoPlay"] boolValue];
+      }
+      
       NSString* assetName = arguments[@"assetName"];
       NSData *pagData = nil;
       if ([assetName isKindOfClass:NSString.class] && assetName.length > 0) {
@@ -57,7 +62,7 @@
               [self setCacheData:key data:pagData];
               
           }
-          [self pagRenderWithPagData:pagData progress:initProgress repeatCount:repeatCount result:result];
+          [self pagRenderWithPagData:pagData progress:initProgress repeatCount:repeatCount autoPlay:autoPlay result:result];
       }
       NSString* url = arguments[@"url"];
       if ([url isKindOfClass:NSString.class] && url.length > 0) {
@@ -70,13 +75,13 @@
               [TGFlutterPagDownloadManager download:url completionHandler:^(NSData * _Nonnull data, NSError * _Nonnull error) {
                   if (data) {
                       [weak_self setCacheData:key data:pagData];
-                      [weak_self pagRenderWithPagData:data progress:initProgress repeatCount:repeatCount result:result];
+                      [weak_self pagRenderWithPagData:data progress:initProgress repeatCount:repeatCount autoPlay:autoPlay result:result];
                   }else{
                       result(@"");
                   }
               }];
           }else{
-              [self pagRenderWithPagData:pagData progress:initProgress repeatCount:repeatCount result:result];
+              [self pagRenderWithPagData:pagData progress:initProgress repeatCount:repeatCount autoPlay:autoPlay result:result];
           }
       }
       
@@ -135,17 +140,17 @@
       NSNumber* x = arguments[@"x"];
       NSNumber* y = arguments[@"y"];
       TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
-      NSArray<NSString *> names = [render getLayersUnderPoint:CGPointMake(x.doubleValue, y.doubleValue)];
+      NSArray<NSString *> *names = [render getLayersUnderPoint:CGPointMake(x.doubleValue, y.doubleValue)];
       result(names);
   } else {
     result(FlutterMethodNotImplemented);
   }
 }
 
--(void)pagRenderWithPagData:(NSData *)pagData progress:(double)progress repeatCount:(int)repeatCount result:(FlutterResult)result{
+-(void)pagRenderWithPagData:(NSData *)pagData progress:(double)progress repeatCount:(int)repeatCount autoPlay:(BOOL)autoPlay result:(FlutterResult)result{
     __block int64_t textureId = -1;
     
-    TGFlutterPagRender *render = [[TGFlutterPagRender alloc] initWithPagData:pagData progress:progress frameUpdateCallback:^{
+    TGFlutterPagRender *render = [[TGFlutterPagRender alloc] initWithPagData:pagData progress:progress autoPlay:autoPlay frameUpdateCallback:^{
          [self.textures textureFrameAvailable:textureId];
     }];
     [render setRepeatCount:repeatCount];

@@ -51,7 +51,7 @@ static int64_t GetCurrentTimeUS() {
     return target;
 }
 
-- (instancetype)initWithPagData:(NSData*)pagData progress:(double)initProgress frameUpdateCallback:(FrameUpdateCallback)callback
+- (instancetype)initWithPagData:(NSData*)pagData progress:(double)initProgress autoPlay:(BOOL)autoPlay frameUpdateCallback:(FrameUpdateCallback)callback
 {
     if (self = [super init]) {
         _callback = callback;
@@ -66,6 +66,9 @@ static int64_t GetCurrentTimeUS() {
             [_player setProgress:initProgress];
             [_player flush];
             _callback();
+            if(autoPlay){
+                [self startRender];
+            }
         }
     }
     return self;

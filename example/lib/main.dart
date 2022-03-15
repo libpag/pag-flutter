@@ -74,6 +74,7 @@ class _MyHomeState extends State<MyHome> {
             height: 600,
             repeatCount: PagView.REPEAT_COUNT_LOOP,
             initProgress: 0.25,
+            autoPlay: true,
             key: pagKey,
           ),
         ),
