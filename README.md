@@ -10,7 +10,7 @@ flutter_pag_plugin:
   hosted:
     name: flutter_pag_plugin
     url: http://pub.oa.com
-  version: ^1.0.2
+  version: ^1.0.3
 ```
 
 ### 使用本地资源
