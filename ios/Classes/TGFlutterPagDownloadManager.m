@@ -3,6 +3,7 @@
 //  flutter_pag_plugin
 //
 //  Created by 黎敬茂 on 2022/3/14.
+//  Copyright © 2022 Tencent. All rights reserved.
 //
 
 #import "TGFlutterPagDownloadManager.h"
@@ -28,7 +29,9 @@
     }
     NSURL *url = [NSURL URLWithString:urlStr];
     NSURLRequest *request = [NSURLRequest requestWithURL:url];
-    NSURLSessionDataTask *dataTask = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+    NSURLSessionDataTask *dataTask = [[NSURLSession sharedSession]
+                                      dataTaskWithRequest:request
+                                      completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         handler(data, error);
         if (data) {
             [TGFlutterPagDownloadManager saveData:data path:cachePath];
@@ -51,11 +54,11 @@
         return nil;
     }
     
-    NSString *md5 = [TGFlutterPagDownloadManager MD5:url];
-    return [NSString stringWithFormat:@"%@/%@", [self cacheDir], md5];
+    NSString *key = [TGFlutterPagDownloadManager md5:url];
+    return [NSString stringWithFormat:@"%@/%@", [self cacheDir], key];
 }
 
-+(NSString *)MD5:(NSString *)str{
++(NSString *)md5:(NSString *)str{
     const char* input = [str UTF8String];
     unsigned char result[CC_MD5_DIGEST_LENGTH];
     CC_MD5(input, (CC_LONG)strlen(input), result);

@@ -13,11 +13,18 @@ NS_ASSUME_NONNULL_BEGIN
 
 typedef void(^FrameUpdateCallback)(void);
 
+/**
+ Pag纹理渲染类
+ */
 @interface TGFlutterPagRender : NSObject<FlutterTexture>
 
+///当前pag的size
 @property(nonatomic, readonly) CGSize size;
 
-- (instancetype)initWithPagData:(NSData*)pagData progress:(double)initProgress autoPlay:(BOOL)autoPlay frameUpdateCallback:(FrameUpdateCallback)callback;
+- (instancetype)initWithPagData:(NSData*)pagData
+                       progress:(double)initProgress
+                       autoPlay:(BOOL)autoPlay
+            frameUpdateCallback:(FrameUpdateCallback)callback;
 
 - (void)startRender;
 
