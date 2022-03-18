@@ -40,6 +40,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     Context context;
     io.flutter.plugin.common.PluginRegistry.Registrar registrar;
     FlutterPlugin.FlutterAssets flutterAssets;
+    private Handler handler = new Handler(Looper.getMainLooper());
 
     HashMap<String, FlutterPagPlayer> layerMap = new HashMap<String, FlutterPagPlayer>();
 
@@ -50,6 +51,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         this.registrar = registrar;
         textureRegistry = registrar.textures();
         context = registrar.context();
+        DataLoadHelper.INSTANCE.initDiskCache(context, DataLoadHelper.INSTANCE.DEAFULT_DIS_SIZE);
     }
 
     @Override
@@ -59,6 +61,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         channel.setMethodCallHandler(this);
         context = binding.getApplicationContext();
         textureRegistry = binding.getTextureRegistry();
+        DataLoadHelper.INSTANCE.initDiskCache(context, DataLoadHelper.INSTANCE.DEAFULT_DIS_SIZE);
     }
 
     public static void registerWith(io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
@@ -127,12 +130,19 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         } else if (url != null) {
             DataLoadHelper.INSTANCE.loadPag(url, new Function1<byte[], Unit>() {
                 @Override
-                public Unit invoke(byte[] bytes) {
-                    if (bytes == null) {
-                        result.error("-1100", "url资源加载错误", null);
-                        return null;
-                    }
-                    initPagPlayerAndCallback(PAGFile.Load(bytes), call, result);
+                public Unit invoke(final byte[] bytes) {
+                    handler.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (bytes == null) {
+                                result.error("-1100", "url资源加载错误", null);
+                                return;
+                            }
+
+                            initPagPlayerAndCallback(PAGFile.Load(bytes), call, result);
+                        }
+                    });
+
                     return null;
                 }
             });
@@ -171,7 +181,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         callback.put("width", (double) composition.width());
         callback.put("height", (double) composition.height());
 
-        new Handler(Looper.getMainLooper()).post(new Runnable() {
+        handler.post(new Runnable() {
             @Override
             public void run() {
                 pagPlayer.flush();

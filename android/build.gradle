@@ -5,6 +5,7 @@ buildscript {
     repositories {
         google()
         jcenter()
+        mavenCentral()
     }
 
     dependencies {
@@ -29,12 +30,12 @@ android {
     compileSdkVersion 30
 
     defaultConfig {
-        minSdkVersion 16
+        minSdkVersion 18
     }
 }
 
 
 dependencies {
-    implementation "com.tencent.tav:libpag:3.2.8.61"
+    implementation "com.tencent.tav:libpag:3.2.7.40"
     implementation 'com.jakewharton:disklrucache:2.0.2'
 }

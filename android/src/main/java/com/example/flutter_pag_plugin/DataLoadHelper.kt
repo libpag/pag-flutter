@@ -17,27 +17,27 @@ object DataLoadHelper {
     private var diskCache: DiskLruCache? = null
     private val memoryCache by lazy { LruCache<String, ByteArray>(Runtime.getRuntime().maxMemory().toInt() / 500) }
     private const val TAG = "DataLoadHelper"
+    const val DEAFULT_DIS_SIZE = 30 * 1024 * 1024L;
 
     //初始化pag动画
-    fun initPag(context: Context, src: String, addPag: (ByteArray?) -> Unit) {
-
-        //从内存缓存中获取
-        if (diskCache == null) {
-            initDiskCache(context)
-        }
-
+    fun loadPag(src: String, addPag: (ByteArray?) -> Unit) {
         val bytes = memoryCache.get(src)
 
         if (bytes != null) {
             addPag(bytes)
         } else {
             Thread {
-                loadPag(src, addPag)
+                loadPagByDisk(src, addPag)
             }.start()
         }
     }
 
-    fun initDiskCache(context: Context, size: Long = 30 * 1024 * 1024) {
+    fun initDiskCache(context: Context, size: Long = DEAFULT_DIS_SIZE) {
+        if (diskCache != null) {
+            Log.w(TAG, "diskCache do not need init again!")
+            return
+        }
+
         val cacheDir = getDiskCacheDir(context, "pag")
         if (!cacheDir.exists()) {
             cacheDir.mkdirs()
@@ -67,9 +67,9 @@ object DataLoadHelper {
     }
 
 
-    //硬盘或者网络获取
+    //硬盘或者网络获取，
     @Synchronized
-    fun loadPag(src: String, addPag: (ByteArray?) -> Unit) {
+    private fun loadPagByDisk(src: String, addPag: (ByteArray?) -> Unit) {
         //从硬盘缓存中获取
         val key = hashKeyForDisk(src)
         var snapShot: DiskLruCache.Snapshot? = null
