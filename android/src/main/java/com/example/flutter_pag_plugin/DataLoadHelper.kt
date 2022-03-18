@@ -17,7 +17,7 @@ object DataLoadHelper {
     private var diskCache: DiskLruCache? = null
     private val memoryCache by lazy { LruCache<String, ByteArray>(Runtime.getRuntime().maxMemory().toInt() / 500) }
     private const val TAG = "DataLoadHelper"
-    const val DEAFULT_DIS_SIZE = 30 * 1024 * 1024L;
+    const val DEFAULT_DIS_SIZE = 30 * 1024 * 1024L;
 
     //初始化pag动画
     fun loadPag(src: String, addPag: (ByteArray?) -> Unit) {
@@ -32,7 +32,7 @@ object DataLoadHelper {
         }
     }
 
-    fun initDiskCache(context: Context, size: Long = DEAFULT_DIS_SIZE) {
+    fun initDiskCache(context: Context, size: Long = DEFAULT_DIS_SIZE) {
         if (diskCache != null) {
             Log.w(TAG, "diskCache do not need init again!")
             return

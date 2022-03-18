@@ -51,7 +51,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         this.registrar = registrar;
         textureRegistry = registrar.textures();
         context = registrar.context();
-        DataLoadHelper.INSTANCE.initDiskCache(context, DataLoadHelper.INSTANCE.DEAFULT_DIS_SIZE);
+        DataLoadHelper.INSTANCE.initDiskCache(context, DataLoadHelper.INSTANCE.DEFAULT_DIS_SIZE);
     }
 
     @Override
@@ -61,7 +61,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         channel.setMethodCallHandler(this);
         context = binding.getApplicationContext();
         textureRegistry = binding.getTextureRegistry();
-        DataLoadHelper.INSTANCE.initDiskCache(context, DataLoadHelper.INSTANCE.DEAFULT_DIS_SIZE);
+        DataLoadHelper.INSTANCE.initDiskCache(context, DataLoadHelper.INSTANCE.DEFAULT_DIS_SIZE);
     }
 
     public static void registerWith(io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
