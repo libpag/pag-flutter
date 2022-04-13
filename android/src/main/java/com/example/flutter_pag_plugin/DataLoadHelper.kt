@@ -21,7 +21,7 @@ object DataLoadHelper {
 
     //初始化pag动画
     fun loadPag(src: String, addPag: (ByteArray?) -> Unit) {
-        val bytes = memoryCache.get(src)
+        val bytes = memoryCache.get(hashKeyForDisk(src))
 
         if (bytes != null) {
             addPag(bytes)

@@ -1,3 +1,6 @@
+## 1.0.7
+* 调整Android端，MemoryLruCache失效
+
 ## 1.0.6
 * 调整Android端，Lru缓存大小
 
