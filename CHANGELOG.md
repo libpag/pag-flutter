@@ -1,3 +1,6 @@
+## 1.0.8
+* 修正获取textureId方式
+
 ## 1.0.7
 * 调整Android端，MemoryLruCache失效
 

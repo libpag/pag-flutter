@@ -254,7 +254,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     String getTextureId(MethodCall call) {
-        return String.valueOf(call.argument("textureId"));
+        return "" + call.argument("textureId");
     }
 
     //插件销毁
