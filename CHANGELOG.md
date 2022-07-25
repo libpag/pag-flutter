@@ -1,3 +1,6 @@
+## 1.0.9
+* 修正setState前mouted判断，避免异常
+
 ## 1.0.8
 * 修正获取textureId方式
 
