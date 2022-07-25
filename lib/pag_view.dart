@@ -58,9 +58,11 @@ class PAGViewState extends State<PAGView> {
     _rawWidth = r['width'] ?? 0;
     _rawHeight = r['height'] ?? 0;
 
-    setState(() {
-      _hasLoadTexture = true;
-    });
+    if(mounted){
+      setState(() {
+        _hasLoadTexture = true;
+      });
+    }
   }
 
   void start() {
