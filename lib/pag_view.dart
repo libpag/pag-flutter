@@ -35,8 +35,8 @@ class PAGViewState extends State<PAGView> {
   bool _hasLoadTexture = false;
   int _textureId = -1;
 
-  double _rawWidth = 0;
-  double _rawHeight = 0;
+  double rawWidth = 0;
+  double rawHeight = 0;
 
   @override
   void initState() {
@@ -55,8 +55,8 @@ class PAGViewState extends State<PAGView> {
         'initPag',
         {'assetName': widget.assetName, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
     _textureId = r['textureId'];
-    _rawWidth = r['width'] ?? 0;
-    _rawHeight = r['height'] ?? 0;
+    rawWidth = r['width'] ?? 0;
+    rawHeight = r['height'] ?? 0;
 
     if(mounted){
       setState(() {
@@ -91,8 +91,8 @@ class PAGViewState extends State<PAGView> {
   Widget build(BuildContext context) {
     if (_hasLoadTexture) {
       return Container(
-        width: widget.width ?? (_rawWidth / 2),
-        height: widget.height ?? (_rawHeight / 2),
+        width: widget.width ?? (rawWidth / 2),
+        height: widget.height ?? (rawHeight / 2),
         child: Texture(textureId: _textureId),
       );
     } else {
