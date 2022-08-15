@@ -46,6 +46,21 @@ static int64_t GetCurrentTimeUS() {
 
 - (CVPixelBufferRef)copyPixelBuffer {
     
+    int64_t duration = [_player duration];
+    if(duration <= 0){
+        duration = 1;
+    }
+    int64_t timestamp = GetCurrentTimeUS();
+    auto count = (timestamp - start) / duration;
+    double value = 0;
+    if (_repeatCount >= 0 && count > _repeatCount) {
+        value = 1;
+    } else {
+        double playTime = (timestamp - start) % duration;
+        value = static_cast<double>(playTime) / duration;
+    }
+    [_player setProgress:value];
+    [_player flush];
     CVPixelBufferRef target = [_surface getCVPixelBuffer];
     CVBufferRetain(target);
     return target;
@@ -128,21 +143,6 @@ static int64_t GetCurrentTimeUS() {
 
 - (void)update
 {
-    int64_t duration = [_player duration];
-    if(duration <= 0){
-        duration = 1;
-    }
-    int64_t timestamp = GetCurrentTimeUS();
-    auto count = (timestamp - start) / duration;
-    double value = 0;
-    if (_repeatCount >= 0 && count > _repeatCount) {
-        value = 1;
-    } else {
-        double playTime = (timestamp - start) % duration;
-        value = static_cast<double>(playTime) / duration;
-    }
-    [_player setProgress:value];
-    [_player flush];
     _callback();
 }
 - (void)releaseRender{

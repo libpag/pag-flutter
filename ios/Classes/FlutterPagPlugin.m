@@ -54,6 +54,7 @@
         result(@{});
         return;
     }
+    [self.textures unregisterTexture:textureId.intValue];
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
     [render releaseRender];
     [_renderMap removeObjectForKey:textureId];
@@ -191,9 +192,9 @@
 
 -(void)pagRenderWithPagData:(NSData *)pagData progress:(double)progress repeatCount:(int)repeatCount autoPlay:(BOOL)autoPlay result:(FlutterResult)result{
     __block int64_t textureId = -1;
-    
+    __weak typeof(self) weakSelf = self;
     TGFlutterPagRender *render = [[TGFlutterPagRender alloc] initWithPagData:pagData progress:progress autoPlay:autoPlay frameUpdateCallback:^{
-         [self.textures textureFrameAvailable:textureId];
+         [weakSelf.textures textureFrameAvailable:textureId];
     }];
     [render setRepeatCount:repeatCount];
     textureId = [self.textures registerTexture:render];

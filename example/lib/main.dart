@@ -91,11 +91,11 @@ class _MyHomeState extends State<MyHome> {
               ),
             ),
             PAGView.network(
-              "https://svipwebwx-30096.sz.gfp.tencent-cloud.com/file1647585475981.pag",
+              "https://static.xinyue.qq.com/xyied/act/202531656901250469/doraon1656901250469.pag",
               repeatCount: PAGView.REPEAT_COUNT_LOOP,
               initProgress: 0.25,
               autoPlay: true,
-              key: networkPagKey,
+              // key: networkPagKey,
             ),
             Padding(
               padding: EdgeInsets.only(left: 12, top: 10),
