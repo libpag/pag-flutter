@@ -7,10 +7,8 @@ Flutter侧通过PagView来使用动画
 ### 引用
 ```
 flutter_pag_plugin:
-  hosted:
-    name: flutter_pag_plugin
-    url: http://pub.oa.com
-  version: ^1.0.5
+  git:
+    url: https://github.com/libpag/pag-flutter.git
 ```
 
 ### 使用本地资源
