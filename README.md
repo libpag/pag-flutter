@@ -1,5 +1,5 @@
 # 项目介绍
-为Flutter打造的PAG动画组件，以外接纹理的方式实现。本工程提供了PAG for Flutter可扩展的基础能力，也可作为示例被使用。
+为Flutter打造的PAG动画组件，以外接纹理的方式实现。本工程提供了演示示例，也可作为PAG for Flutter的基础架构。
 
 # 快速上手
 Flutter侧通过PagView来使用动画
@@ -55,7 +55,3 @@ PagView.url(
   //获取坐标位置的图层名list
   pagKey.currentState?.getLayersUnderPoint(x,y);
 ```
-# 常见问题
-
-# 行为准则
-项目在代码协作方面需遵循的责任、范围、软件许可证、冲突解决等章程
