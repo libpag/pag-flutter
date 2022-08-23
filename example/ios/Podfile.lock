@@ -3,32 +3,28 @@ PODS:
   - flutter_pag_plugin (0.0.1):
     - Flutter
     - libpag
-  - libpag (3.2.4.9)
+  - libpag (4.0.5.17)
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
   - flutter_pag_plugin (from `.symlinks/plugins/flutter_pag_plugin/ios`)
-  - libpag (from `https://git.woa.com/CameraToolsGroup/pag-ios.git`, tag `dev/v3.2.4.9`)
+  - libpag
+
+SPEC REPOS:
+  trunk:
+    - libpag
 
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
   flutter_pag_plugin:
     :path: ".symlinks/plugins/flutter_pag_plugin/ios"
-  libpag:
-    :git: https://git.woa.com/CameraToolsGroup/pag-ios.git
-    :tag: dev/v3.2.4.9
-
-CHECKOUT OPTIONS:
-  libpag:
-    :git: https://git.woa.com/CameraToolsGroup/pag-ios.git
-    :tag: dev/v3.2.4.9
 
 SPEC CHECKSUMS:
   Flutter: 50d75fe2f02b26cc09d224853bb45737f8b3214a
   flutter_pag_plugin: dc9bfb74eca8bcef7a62655873a951237d0ee4b2
-  libpag: b634e2b6cadcb3b3b11b7c08488e5b7e42f7bafd
+  libpag: c704ce5c2a4c3fcb59e0fcde4d5e18610d5b789d
 
-PODFILE CHECKSUM: b79697d4236ccf5ec780424550adeae953e871d6
+PODFILE CHECKSUM: de9ac49b3da961465d87ba3338db1b076549f1bb
 
 COCOAPODS: 1.11.2
