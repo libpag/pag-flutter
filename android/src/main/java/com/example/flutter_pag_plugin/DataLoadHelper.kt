@@ -26,7 +26,7 @@ object DataLoadHelper {
     private val loadListeners = mutableListOf<ILoadListener>()
 
     //初始化pag动画
-    fun loadPag(src: String, addPag: (ByteArray?) -> Unit, from: Int = FROM_PLUGIN) {
+    fun loadPag(src: String, addPag: (ByteArray?) -> Unit, from: Int = FROM_OTHER) {
         val time = System.currentTimeMillis();
         val bytes = memoryCache.get(hashKeyForDisk(src))
 

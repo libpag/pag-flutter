@@ -145,7 +145,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
                     return null;
                 }
-            });
+            },DataLoadHelper.FROM_PLUGIN);
         } else {
             result.error("-1100", "未添加资源", null);
         }
