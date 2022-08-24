@@ -19,15 +19,34 @@ object DataLoadHelper {
     private const val TAG = "DataLoadHelper"
     const val DEFAULT_DIS_SIZE = 30 * 1024 * 1024L;
 
+    // 下载来源：flutter插件、其他
+    const val FROM_PLUGIN = 0
+    const val FROM_OTHER = 1
+
+    private val loadListeners = mutableListOf<ILoadListener>()
+
     //初始化pag动画
-    fun loadPag(src: String, addPag: (ByteArray?) -> Unit) {
+    fun loadPag(src: String, addPag: (ByteArray?) -> Unit, from: Int = FROM_PLUGIN) {
+        val time = System.currentTimeMillis();
         val bytes = memoryCache.get(hashKeyForDisk(src))
+
+        loadListeners.forEach {
+            it.loadStart(src, from)
+        }
 
         if (bytes != null) {
             addPag(bytes)
+            loadListeners.forEach {
+                it.loadComplete(src, bytes, System.currentTimeMillis() - time, "", from)
+            }
         } else {
             Thread {
-                loadPagByDisk(src, addPag)
+                loadPagByDisk(src) { byteArray, errorMsg ->
+                    addPag.invoke(byteArray)
+                    loadListeners.forEach {
+                        it.loadComplete(src, bytes, System.currentTimeMillis() - time, errorMsg, from)
+                    }
+                }
             }.start()
         }
     }
@@ -44,9 +63,9 @@ object DataLoadHelper {
         }
         try {
             diskCache = diskCache ?: DiskLruCache.open(
-                    cacheDir,
-                    context.packageManager.getPackageInfo(context.packageName, 0).versionCode,
-                    1, size
+                cacheDir,
+                context.packageManager.getPackageInfo(context.packageName, 0).versionCode,
+                1, size
             )
         } catch (e: IOException) {
             Log.e(TAG, "initDiskCache error: $e")
@@ -57,7 +76,7 @@ object DataLoadHelper {
     //获取硬盘缓存路径
     private fun getDiskCacheDir(context: Context, uniqueName: String): File {
         val cachePath: String = if (Environment.MEDIA_MOUNTED == Environment.getExternalStorageState()
-                || !Environment.isExternalStorageRemovable()
+            || !Environment.isExternalStorageRemovable()
         ) {
             context.externalCacheDir?.path
         } else {
@@ -69,8 +88,10 @@ object DataLoadHelper {
 
     //硬盘或者网络获取，
     @Synchronized
-    private fun loadPagByDisk(src: String, addPag: (ByteArray?) -> Unit) {
+    private fun loadPagByDisk(src: String, addPag: (ByteArray?, String) -> Unit) {
         //从硬盘缓存中获取
+
+        var errorMsg = ""
         val key = hashKeyForDisk(src)
         var snapShot: DiskLruCache.Snapshot? = null
         try {
@@ -93,6 +114,7 @@ object DataLoadHelper {
             }
         } catch (e: IOException) {
             Log.e(TAG, "loadPag load from network erro: $e")
+            errorMsg = "loadPag load from network error: $e"
         }
 
         //进行bytes读取
@@ -116,6 +138,7 @@ object DataLoadHelper {
             } catch (e: IOException) {
                 e.printStackTrace()
                 Log.e(TAG, "loadPag load from snapShot erro: $e")
+                errorMsg = "loadPag load from network error: $e"
             }
         }
 
@@ -124,7 +147,7 @@ object DataLoadHelper {
         if (bytes != null && bytes!!.isNotEmpty() && memoryCache.get(key) == null) {
             memoryCache.put(key, bytes)
         }
-        addPag(bytes)
+        addPag(bytes, errorMsg)
     }
 
 
@@ -167,4 +190,21 @@ object DataLoadHelper {
             key.hashCode().toString()
         }
     }
+
+    fun addLoadListener(loadListener: ILoadListener) {
+        loadListeners.add(loadListener)
+    }
+
+
+    fun removeLoadListener(loadListener: ILoadListener) {
+        loadListeners.remove(loadListener)
+    }
+}
+
+// 用于监听PAG加载情况
+interface ILoadListener {
+
+    fun loadStart(url: String, from: Int)
+
+    fun loadComplete(url: String, result: ByteArray?/*result为空则失败*/, useTime: Long, errorMsg: String, from: Int)
 }

@@ -1,3 +1,6 @@
+## 1.1.0
+* 添加android端PAG加载监控
+
 ## 1.0.9
 * 修正setState前mouted判断，避免异常
 
