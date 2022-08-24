@@ -44,7 +44,7 @@ object DataLoadHelper {
                 loadPagByDisk(src) { byteArray, errorMsg ->
                     addPag.invoke(byteArray)
                     loadListeners.forEach {
-                        it.loadComplete(src, bytes, System.currentTimeMillis() - time, errorMsg, from)
+                        it.loadComplete(src, byteArray, System.currentTimeMillis() - time, errorMsg, from)
                     }
                 }
             }.start()
