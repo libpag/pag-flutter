@@ -151,7 +151,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         }
     }
 
-    private void initPagPlayerAndCallback(PAGFile composition, MethodCall call, Result result) {
+    private void initPagPlayerAndCallback(PAGFile composition, MethodCall call, final Result result) {
         final int repeatCount = call.argument("repeatCount");
         final double initProgress = call.argument("initProgress");
         final boolean autoPlay = call.argument("autoPlay");
@@ -176,7 +176,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         });
 
         layerMap.put(String.valueOf(entry.id()), pagPlayer);
-        HashMap<String, Object> callback = new HashMap<String, Object>();
+        final HashMap<String, Object> callback = new HashMap<String, Object>();
         callback.put("textureId", entry.id());
         callback.put("width", (double) composition.width());
         callback.put("height", (double) composition.height());
@@ -188,9 +188,9 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 if (autoPlay) {
                     pagPlayer.start();
                 }
+                result.success(callback);
             }
         });
-        result.success(callback);
     }
 
     void start(MethodCall call) {

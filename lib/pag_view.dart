@@ -20,12 +20,16 @@ class PAGView extends StatefulWidget {
 
   // TODO: 循环次数
   int? repeatCount;
+
+  // TODO: 加载完成回调
+  void Function()? loadCallback;
+
   static const int REPEAT_COUNT_LOOP = -1; //无限循环
   static const int REPEAT_COUNT_DEFAULT = 1; //默认仅播放一次
 
-  PAGView.network(this.url, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, Key? key}) : super(key: key);
+  PAGView.network(this.url, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, this.loadCallback, Key? key}) : super(key: key);
 
-  PAGView.asset(this.assetName, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, Key? key}) : super(key: key);
+  PAGView.asset(this.assetName, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, this.loadCallback, Key? key}) : super(key: key);
 
   @override
   PAGViewState createState() => PAGViewState();
@@ -50,18 +54,16 @@ class PAGViewState extends State<PAGView> {
       repeatCount = PAGView.REPEAT_COUNT_DEFAULT;
     }
 
-    dynamic r =
-    await FlutterPagPlugin.getChannel().invokeMethod(
-        'initPag',
-        {'assetName': widget.assetName, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
+    dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
     _textureId = r['textureId'];
     rawWidth = r['width'] ?? 0;
     rawHeight = r['height'] ?? 0;
 
-    if(mounted){
+    if (mounted) {
       setState(() {
         _hasLoadTexture = true;
       });
+      widget.loadCallback?.call();
     }
   }
 
@@ -82,9 +84,7 @@ class PAGViewState extends State<PAGView> {
   }
 
   Future<List<String>> getLayersUnderPoint(double x, double y) async {
-    return (await FlutterPagPlugin.getChannel().invokeMethod('getLayersUnderPoint', {'textureId': _textureId, 'x': x, 'y': y}) as List)
-        .map((e) => e.toString())
-        .toList();
+    return (await FlutterPagPlugin.getChannel().invokeMethod('getLayersUnderPoint', {'textureId': _textureId, 'x': x, 'y': y}) as List).map((e) => e.toString()).toList();
   }
 
   @override
