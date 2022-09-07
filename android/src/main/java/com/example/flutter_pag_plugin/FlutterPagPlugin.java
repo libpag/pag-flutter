@@ -48,6 +48,9 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     public HashMap<String, FlutterPagPlayer> layerMap = new HashMap<String, FlutterPagPlayer>();
     public HashMap<String, TextureRegistry.SurfaceTextureEntry> entryMap = new HashMap<String, TextureRegistry.SurfaceTextureEntry>();
 
+    public FlutterPagPlugin() {
+    }
+
     public FlutterPagPlugin(io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
         pluginList.add(this);
         this.registrar = registrar;
