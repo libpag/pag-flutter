@@ -282,7 +282,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         }
         layerMap.clear();
         entryMap.clear();
-        channel.setMethodCallHandler(null);
+//        channel.setMethodCallHandler(null);
     }
 
     @Override
