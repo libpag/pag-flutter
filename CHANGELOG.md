@@ -1,3 +1,6 @@
+## 1.1.5
+* Android端解决资源释放问题
+
 ## 1.1.4
 * 添加loadCallback
 

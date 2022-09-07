@@ -42,12 +42,14 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     FlutterPlugin.FlutterAssets flutterAssets;
     private Handler handler = new Handler(Looper.getMainLooper());
 
-    HashMap<String, FlutterPagPlayer> layerMap = new HashMap<String, FlutterPagPlayer>();
+    // 多引擎使用是plugin的集合，请留意该场景下需手动释放，否则存在内存泄漏的问题
+    public static List<FlutterPagPlugin> pluginList = new ArrayList<FlutterPagPlugin>();
 
-    public FlutterPagPlugin() {
-    }
+    public HashMap<String, FlutterPagPlayer> layerMap = new HashMap<String, FlutterPagPlayer>();
+    public HashMap<String, TextureRegistry.SurfaceTextureEntry> entryMap = new HashMap<String, TextureRegistry.SurfaceTextureEntry>();
 
     public FlutterPagPlugin(io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
+        pluginList.add(this);
         this.registrar = registrar;
         textureRegistry = registrar.textures();
         context = registrar.context();
@@ -56,6 +58,9 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
+        if (!pluginList.contains(this)) {
+            pluginList.add(this);
+        }
         flutterAssets = binding.getFlutterAssets();
         channel = new MethodChannel(binding.getBinaryMessenger(), "flutter_pag_plugin");
         channel.setMethodCallHandler(this);
@@ -70,6 +75,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             @Override
             public boolean onViewDestroy(FlutterNativeView flutterNativeView) {
                 plugin.onDestroy();
+                pluginList.remove(this);
                 return false; // We are not interested in assuming ownership of the NativeView.
             }
         });
@@ -145,7 +151,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
                     return null;
                 }
-            },DataLoadHelper.FROM_PLUGIN);
+            }, DataLoadHelper.FROM_PLUGIN);
         } else {
             result.error("-1100", "未添加资源", null);
         }
@@ -158,6 +164,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
         final FlutterPagPlayer pagPlayer = new FlutterPagPlayer();
         final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
+        entryMap.put(String.valueOf(entry.id()), entry);
 
         pagPlayer.init(composition, repeatCount, initProgress);
         SurfaceTexture surfaceTexture = entry.surfaceTexture();
@@ -228,6 +235,11 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             flutterPagPlayer.stop();
             flutterPagPlayer.release();
         }
+
+        TextureRegistry.SurfaceTextureEntry entry = entryMap.remove(getTextureId(call));
+        if (entry != null) {
+            entry.release();
+        }
     }
 
     List<String> getLayersUnderPoint(MethodCall call) {
@@ -262,7 +274,11 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         for (FlutterPagPlayer pagPlayer : layerMap.values()) {
             pagPlayer.release();
         }
+        for (TextureRegistry.SurfaceTextureEntry entry : entryMap.values()) {
+            entry.release();
+        }
         layerMap.clear();
+        entryMap.clear();
         channel.setMethodCallHandler(null);
     }
 
