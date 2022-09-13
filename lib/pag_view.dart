@@ -9,6 +9,9 @@ class PAGView extends StatefulWidget {
   // TODO: flutter资源路径，优先级比url高
   String? assetName;
 
+  // TODO: asset package
+  String? package;
+
   // TODO: 网络资源，动画链接
   String? url;
 
@@ -29,7 +32,7 @@ class PAGView extends StatefulWidget {
 
   PAGView.network(this.url, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, this.loadCallback, Key? key}) : super(key: key);
 
-  PAGView.asset(this.assetName, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, this.loadCallback, Key? key}) : super(key: key);
+  PAGView.asset(this.assetName, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, this.package, this.loadCallback, Key? key}) : super(key: key);
 
   @override
   PAGViewState createState() => PAGViewState();
@@ -54,7 +57,7 @@ class PAGViewState extends State<PAGView> {
       repeatCount = PAGView.REPEAT_COUNT_DEFAULT;
     }
 
-    dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
+    dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'package':widget.package, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
     _textureId = r['textureId'];
     rawWidth = r['width'] ?? 0;
     rawHeight = r['height'] ?? 0;
