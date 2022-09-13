@@ -135,7 +135,14 @@
         NSString *key = assetName;
         pagData = [self getCacheData:key];
         if (!pagData) {
-            NSString* resourcePath = [self.registrar lookupKeyForAsset:assetName];
+            NSString* package = arguments[@"package"];
+            NSString* resourcePath;
+            if(package && [package isKindOfClass:NSString.class] && package.length > 0){
+                resourcePath = [self.registrar lookupKeyForAsset:assetName fromPackage:package];
+            }else{
+                resourcePath = [self.registrar lookupKeyForAsset:assetName];
+            }
+            
             resourcePath = [[NSBundle mainBundle] pathForResource:resourcePath ofType:nil];
             
             pagData = [NSData dataWithContentsOfFile:resourcePath];

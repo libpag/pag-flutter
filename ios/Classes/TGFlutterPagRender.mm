@@ -146,9 +146,13 @@ static int64_t GetCurrentTimeUS() {
     _callback();
 }
 - (void)releaseRender{
-    [self stopRender];
+    if (_displayLink) {
+        [_displayLink invalidate];
+        _displayLink = nil;
+    }
     _callback = nil;
     _surface = nil;
+    self.pagFile = nil;
     self.player = nil;
 }
 @end
