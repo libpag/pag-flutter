@@ -120,13 +120,23 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     private void initPag(final MethodCall call, final Result result) {
         String assetName = call.argument("assetName");
         String url = call.argument("url");
+        String flutterPackage = call.argument("package");
 
         if (assetName != null) {
             String assetKey = "";
+
             if (registrar != null) {
-                assetKey = registrar.lookupKeyForAsset(assetName);
+                if (flutterPackage == null || flutterPackage.isEmpty()) {
+                    assetKey = registrar.lookupKeyForAsset(assetName);
+                } else {
+                    assetKey = registrar.lookupKeyForAsset(assetName, flutterPackage);
+                }
             } else if (flutterAssets != null) {
-                assetKey = flutterAssets.getAssetFilePathByName(assetName);
+                if (flutterPackage == null || flutterPackage.isEmpty()) {
+                    assetKey = flutterAssets.getAssetFilePathByName(assetName);
+                } else {
+                    assetKey = flutterAssets.getAssetFilePathByName(assetName, flutterPackage);
+                }
             }
 
             if (assetKey == null) {
