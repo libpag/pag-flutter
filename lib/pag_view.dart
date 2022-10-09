@@ -57,7 +57,7 @@ class PAGViewState extends State<PAGView> {
       repeatCount = PAGView.REPEAT_COUNT_DEFAULT;
     }
 
-    dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'package':widget.package, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
+    dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'package': widget.package, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
     _textureId = r['textureId'];
     rawWidth = r['width'] ?? 0;
     rawHeight = r['height'] ?? 0;
@@ -67,6 +67,8 @@ class PAGViewState extends State<PAGView> {
         _hasLoadTexture = true;
       });
       widget.loadCallback?.call();
+    } else {
+      FlutterPagPlugin.getChannel().invokeMethod('release', {'textureId': _textureId});
     }
   }
 
