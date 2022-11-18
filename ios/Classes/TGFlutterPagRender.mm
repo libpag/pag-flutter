@@ -145,11 +145,15 @@ static int64_t GetCurrentTimeUS() {
 {
     _callback();
 }
+
 - (void)releaseRender{
     if (_displayLink) {
         [_displayLink invalidate];
         _displayLink = nil;
     }
+}
+
+- (void)dealloc {
     _callback = nil;
     _surface = nil;
     self.pagFile = nil;
