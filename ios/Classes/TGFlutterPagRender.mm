@@ -150,6 +150,9 @@ static int64_t GetCurrentTimeUS() {
         [_displayLink invalidate];
         _displayLink = nil;
     }
+}
+
+- (void)dealloc {
     _callback = nil;
     _surface = nil;
     self.pagFile = nil;
