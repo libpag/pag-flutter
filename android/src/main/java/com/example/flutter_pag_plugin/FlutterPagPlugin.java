@@ -171,6 +171,11 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     private void initPagPlayerAndCallback(PAGFile composition, MethodCall call, final Result result) {
+        if (composition == null) {
+            result.error("-1100", "load composition is null! ", null);
+            return;
+        }
+
         final int repeatCount = call.argument("repeatCount");
         final double initProgress = call.argument("initProgress");
         final boolean autoPlay = call.argument("autoPlay");
