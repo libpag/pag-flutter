@@ -120,13 +120,23 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     private void initPag(final MethodCall call, final Result result) {
         String assetName = call.argument("assetName");
         String url = call.argument("url");
+        String flutterPackage = call.argument("package");
 
         if (assetName != null) {
             String assetKey = "";
+
             if (registrar != null) {
-                assetKey = registrar.lookupKeyForAsset(assetName);
+                if (flutterPackage == null || flutterPackage.isEmpty()) {
+                    assetKey = registrar.lookupKeyForAsset(assetName);
+                } else {
+                    assetKey = registrar.lookupKeyForAsset(assetName, flutterPackage);
+                }
             } else if (flutterAssets != null) {
-                assetKey = flutterAssets.getAssetFilePathByName(assetName);
+                if (flutterPackage == null || flutterPackage.isEmpty()) {
+                    assetKey = flutterAssets.getAssetFilePathByName(assetName);
+                } else {
+                    assetKey = flutterAssets.getAssetFilePathByName(assetName, flutterPackage);
+                }
             }
 
             if (assetKey == null) {
@@ -161,6 +171,11 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     private void initPagPlayerAndCallback(PAGFile composition, MethodCall call, final Result result) {
+        if (composition == null) {
+            result.error("-1100", "load composition is null! ", null);
+            return;
+        }
+
         final int repeatCount = call.argument("repeatCount");
         final double initProgress = call.argument("initProgress");
         final boolean autoPlay = call.argument("autoPlay");
