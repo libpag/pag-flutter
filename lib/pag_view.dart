@@ -59,10 +59,11 @@ class PAGViewState extends State<PAGView> {
 
     try {
       dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'package': widget.package, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
-      _textureId = r['textureId'];
-      rawWidth = r['width'] ?? 0;
-      rawHeight = r['height'] ?? 0;
-
+      if (r is Map) {
+        _textureId = r['textureId'];
+        rawWidth = r['width'] ?? 0;
+        rawHeight = r['height'] ?? 0;
+      }
       if (mounted) {
         setState(() {
           _hasLoadTexture = true;
