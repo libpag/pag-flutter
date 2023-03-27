@@ -57,40 +57,58 @@ class PAGViewState extends State<PAGView> {
       repeatCount = PAGView.REPEAT_COUNT_DEFAULT;
     }
 
-    dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'package': widget.package, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
-    if (r is Map) {
-      _textureId = r['textureId'];
-      rawWidth = r['width'] ?? 0;
-      rawHeight = r['height'] ?? 0;
-    }
-
-    if (mounted) {
-      setState(() {
-        _hasLoadTexture = true;
-      });
-      widget.loadCallback?.call();
-    } else {
-      FlutterPagPlugin.getChannel().invokeMethod('release', {'textureId': _textureId});
+    try {
+      dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'package': widget.package, 'url': widget.url, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
+      if (r is Map) {
+        _textureId = r['textureId'];
+        rawWidth = r['width'] ?? 0;
+        rawHeight = r['height'] ?? 0;
+      }
+      if (mounted) {
+        setState(() {
+          _hasLoadTexture = true;
+        });
+        widget.loadCallback?.call();
+      } else {
+        FlutterPagPlugin.getChannel().invokeMethod('release', {'textureId': _textureId});
+      }
+    } catch (e) {
+      print("PAGViewState error: $e");
     }
   }
 
   void start() {
+    if (!_hasLoadTexture) {
+      return;
+    }
     FlutterPagPlugin.getChannel().invokeMethod('start', {'textureId': _textureId});
   }
 
   void stop() {
+    if (!_hasLoadTexture) {
+      return;
+    }
     FlutterPagPlugin.getChannel().invokeMethod('stop', {'textureId': _textureId});
   }
 
   void pause() {
+    if (!_hasLoadTexture) {
+      return;
+    }
     FlutterPagPlugin.getChannel().invokeMethod('pause', {'textureId': _textureId});
   }
 
   void setProgress(double progress) {
+    if (!_hasLoadTexture) {
+      return;
+    }
     FlutterPagPlugin.getChannel().invokeMethod('setProgress', {'textureId': _textureId, 'progress': progress});
   }
 
   Future<List<String>> getLayersUnderPoint(double x, double y) async {
+    if (!_hasLoadTexture) {
+      return [];
+    }
     return (await FlutterPagPlugin.getChannel().invokeMethod('getLayersUnderPoint', {'textureId': _textureId, 'x': x, 'y': y}) as List).map((e) => e.toString()).toList();
   }
 
