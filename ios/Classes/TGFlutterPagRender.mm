@@ -53,7 +53,7 @@ static int64_t GetCurrentTimeUS() {
     int64_t timestamp = GetCurrentTimeUS();
     auto count = (timestamp - start) / duration;
     double value = 0;
-    if (_repeatCount >= 0 && count > _repeatCount) {
+    if (_repeatCount >= 0 && count >= _repeatCount) {
         value = 1;
     } else {
         double playTime = (timestamp - start) % duration;
