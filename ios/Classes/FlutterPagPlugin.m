@@ -51,20 +51,20 @@
 - (void)release:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber* textureId = arguments[@"textureId"];
     if(textureId == nil){
-        result(@{});
+        result(@"");
         return;
     }
     [self.textures unregisterTexture:textureId.intValue];
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
     [render releaseRender];
     [_renderMap removeObjectForKey:textureId];
-    result(@{});
+    result(@"");
 }
 
 - (void)setProgress:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber* textureId = arguments[@"textureId"];
     if(textureId == nil){
-        result(@{});
+        result(@"");
         return;
     }
     double progress = 0.0;
@@ -73,40 +73,40 @@
     }
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
     [render setProgress:progress];
-    result(@{});
+    result(@"");
 }
 
 - (void)pause:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber* textureId = arguments[@"textureId"];
     if(textureId == nil){
-        result(@{});
+        result(@"");
         return;
     }
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
     [render pauseRender];
-    result(@{});
+    result(@"");
 }
 
 - (void)stop:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber* textureId = arguments[@"textureId"];
     if(textureId == nil){
-        result(@{});
+        result(@"");
         return;
     }
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
     [render stopRender];
-    result(@{});
+    result(@"");
 }
 
 - (void)start:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber* textureId = arguments[@"textureId"];
     if(textureId == nil){
-        result(@{});
+        result(@"");
         return;
     }
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
     [render startRender];
-    result(@{});
+    result(@"");
 }
 
 - (void)initPag:(id)arguments result:(FlutterResult _Nonnull)result {
@@ -164,7 +164,7 @@
                     [weak_self setCacheData:key data:pagData];
                     [weak_self pagRenderWithPagData:data progress:initProgress repeatCount:repeatCount autoPlay:autoPlay result:result];
                 }else{
-                    result(@"");
+                    result(@-1);
                 }
             }];
         }else{
