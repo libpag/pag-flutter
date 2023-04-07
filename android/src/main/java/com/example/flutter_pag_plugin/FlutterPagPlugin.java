@@ -92,18 +92,23 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 break;
             case "start":
                 start(call);
+                result.success("");
                 break;
             case "stop":
                 stop(call);
+                result.success("");
                 break;
             case "pause":
                 pause(call);
+                result.success("");
                 break;
             case "setProgress":
                 setProgress(call);
+                result.success("");
                 break;
             case "release":
                 release(call);
+                result.success("");
                 break;
             case "getPlatformVersion":
                 result.success("Android " + android.os.Build.VERSION.RELEASE);
