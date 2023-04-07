@@ -9,7 +9,6 @@ void main() {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    print("build my app");
     return MaterialApp(
       home: MyHome(),
     );
@@ -24,7 +23,6 @@ class MyHome extends StatefulWidget {
 class _MyHomeState extends State<MyHome> {
   final GlobalKey<PAGViewState> assetPagKey = GlobalKey<PAGViewState>();
   final GlobalKey<PAGViewState> networkPagKey = GlobalKey<PAGViewState>();
-  bool show = true;
 
   @override
   Widget build(BuildContext context) {
@@ -43,25 +41,12 @@ class _MyHomeState extends State<MyHome> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black54),
               ),
             ),
-            Visibility(child: PAGView.asset(
+            PAGView.asset(
               "data/fans.pag",
               repeatCount: PAGView.REPEAT_COUNT_LOOP,
               initProgress: 0.25,
               autoPlay: true,
               key: assetPagKey,
-            ), visible: show,),
-            IconButton(
-              iconSize: 30,
-              icon: const Icon(
-                Icons.play_circle,
-                color: Colors.black54,
-              ),
-              onPressed: () {
-                // 播放
-                setState(() {
-                  show = true;
-                });
-              },
             ),
             Padding(
               padding: EdgeInsets.only(left: 12, top: 10),
@@ -106,11 +91,11 @@ class _MyHomeState extends State<MyHome> {
               ),
             ),
             PAGView.network(
-              "https://static.xinyue.qq.com/xyied/act/202531656901250469/doraon1656901250469.pag",
+              "https://svipwebwx-30096.sz.gfp.tencent-cloud.com/file1647585475981.pag",
               repeatCount: PAGView.REPEAT_COUNT_LOOP,
               initProgress: 0.25,
               autoPlay: true,
-              // key: networkPagKey,
+              key: networkPagKey,
             ),
             Padding(
               padding: EdgeInsets.only(left: 12, top: 10),
@@ -136,19 +121,6 @@ class _MyHomeState extends State<MyHome> {
                     onPressed: () {
                       // 播放
                       networkPagKey.currentState?.start();
-                    },
-                  ),
-                  IconButton(
-                    iconSize: 30,
-                    icon: const Icon(
-                      Icons.play_circle,
-                      color: Colors.black54,
-                    ),
-                    onPressed: () {
-                      // 播放
-                      setState(() {
-                        show = false;
-                      });
                     },
                   ),
                   Text(
