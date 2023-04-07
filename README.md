@@ -1,6 +1,6 @@
 # 项目介绍
 为Flutter打造的PAG动画组件，以外接纹理的方式实现。本工程提供了演示示例，也可作为PAG for Flutter的基础架构。
-**注：此仓库由第三方作者上传并维护，如果遇到使用问题请在本仓库提 issue 与作者讨论，或直接提交 pr 参与共建。**
+**注：如果遇到使用问题请在本仓库提 issue 与作者讨论，或直接提交 pr 参与共建。**
 
 # 快速上手
 Flutter侧通过PagView来使用动画
@@ -10,6 +10,11 @@ Flutter侧通过PagView来使用动画
 flutter_pag_plugin:
   git:
     url: https://github.com/libpag/pag-flutter.git
+```
+
+Android端混淆文件中配置，避免影响
+```
+-keep class org.libpag.**{*;}
 ```
 
 ### 使用本地资源
