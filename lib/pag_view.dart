@@ -6,25 +6,25 @@ class PAGView extends StatefulWidget {
   double? width;
   double? height;
 
-  // TODO: flutter资源路径，优先级比url高
+  /// flutter资源路径，优先级比url高
   String? assetName;
 
-  // TODO: asset package
+  /// asset package
   String? package;
 
-  // TODO: 网络资源，动画链接
+  /// 网络资源，动画链接
   String? url;
 
-  // TODO: 初始化时播放进度
+  /// 初始化时播放进度
   double? initProgress;
 
-  // TODO: 初始化后自动播放
+  /// 初始化后自动播放
   bool autoPlay;
 
-  // TODO: 循环次数
+  /// 循环次数
   int? repeatCount;
 
-  // TODO: 加载完成回调
+  /// 加载完成回调
   void Function()? loadCallback;
 
   static const int REPEAT_COUNT_LOOP = -1; //无限循环
