@@ -146,7 +146,7 @@ class _MyHomeState extends State<MyHome> {
                 ],
               ),
             ),
-            /// TODO: PAGView加载网络资源
+            /// TODO: PAGView加载二进制资源
             Padding(
               padding: EdgeInsets.only(top: 50, left: 12, bottom: 20),
               child: Text(

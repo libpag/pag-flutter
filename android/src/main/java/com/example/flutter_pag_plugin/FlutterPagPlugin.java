@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.Surface;
 
 import androidx.annotation.NonNull;
@@ -145,7 +146,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
     private void initPag(final MethodCall call, final Result result) {
         String assetName = call.argument(_argumentAssetName);
-        String bytes = call.argument(_argumentBytes);
+        byte[] bytes = call.argument(_argumentBytes);
         String url = call.argument(_argumentUrl);
         String flutterPackage = call.argument(_argumentPackage);
 
@@ -234,7 +235,6 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         callback.put(_argumentTextureId, entry.id());
         callback.put(_argumentWidth, (double) composition.width());
         callback.put(_argumentHeight, (double) composition.height());
-
         handler.post(new Runnable() {
             @Override
             public void run() {
