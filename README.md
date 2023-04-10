@@ -20,7 +20,7 @@ Android端混淆文件中配置，避免影响
 
 ### 使用本地资源
 ```
-PagView.asset(
+PAGView.asset(
     "assets/xxx.pag", //flutter侧资源路径
     repeatCount: PagView.REPEAT_COUNT_LOOP, // 循环次数
     initProgress: 0.25, // 初始进度
@@ -30,7 +30,7 @@ PagView.asset(
 ```
 ### 使用网络资源
 ```
-PagView.url(
+PAGView.url(
     "xxxx", //网络链接
     repeatCount: PagView.REPEAT_COUNT_LOOP, // 循环次数
     initProgress: 0.25, // 初始进度
@@ -40,7 +40,7 @@ PagView.url(
 ```
 ### 使用二进制数据
 ```
-PagView.bytes(
+PAGView.bytes(
     "xxxx", //网络链接
     repeatCount: PagView.REPEAT_COUNT_LOOP, // 循环次数
     initProgress: 0.25, // 初始进度
@@ -72,10 +72,10 @@ PAGView.asset(
 
 ### 通过key获取state进行主动调用
 ```
-  final GlobalKey<PagViewState> pagKey = GlobalKey<PagViewState>();
+  final GlobalKey<PAGViewState> pagKey = GlobalKey<PAGViewState>();
   
   //传入key值
-  PagView.url(key:pagKey）
+  PAGView.url(key:pagKey）
   
   //播放
   pagKey.currentState?.start();
