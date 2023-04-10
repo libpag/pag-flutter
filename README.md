@@ -48,6 +48,28 @@ PagView.bytes(
     autoPlay: true, // 是否自动播放
   )
 ```
+### 可以在PAGView中加入回调参数
+以下回调与原生PAG监听对齐
+```
+PAGView.asset(
+    ...
+    onAnimationStart: (){  // 开始
+      // do something
+    },
+    onAnimationEnd: (){   // 结束
+      // do something
+    },
+    onAnimationRepeat: (){ // 重复
+      // do something
+    },
+    onAnimationCancel: (){ // 取消
+      // do something
+    },
+    onAnimationUpdate: (){ // 更新
+      // do something
+    },
+```
+
 ### 通过key获取state进行主动调用
 ```
   final GlobalKey<PagViewState> pagKey = GlobalKey<PagViewState>();
