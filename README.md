@@ -4,7 +4,7 @@
 **注：如果遇到使用问题请在本仓库提 issue 与作者讨论，或直接提交 pr 参与共建。**
 
 # 快速上手
-Flutter侧通过PagView来使用动画
+Flutter侧通过PAGView来使用动画
 
 ### 引用
 ```
