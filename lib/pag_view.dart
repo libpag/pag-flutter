@@ -3,20 +3,23 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+typedef PAGCallback = void Function();
+
 class PAGView extends StatefulWidget {
   double? width;
   double? height;
 
-  /// flutter资源路径，优先级比url高
-  String? assetName;
-
-  /// asset package
-  String? package;
+  /// 二进制动画数据
+  Uint8List? bytesData;
 
   /// 网络资源，动画链接
   String? url;
 
-  Uint8List? bytesData;
+  /// flutter动画资源路径
+  String? assetName;
+
+  /// asset package
+  String? package;
 
   /// 初始化时播放进度
   double? initProgress;
@@ -27,17 +30,76 @@ class PAGView extends StatefulWidget {
   /// 循环次数
   int? repeatCount;
 
-  /// 加载完成回调
-  void Function()? loadCallback;
+  /// 初始化完成
+  PAGCallback? onInit;
+
+  /// Notifies the start of the animation.
+  PAGCallback? onAnimationStart;
+
+  /// Notifies the end of the animation.
+  PAGCallback? onAnimationEnd;
+
+  /// Notifies the cancellation of the animation.
+  PAGCallback? onAnimationCancel;
+
+  /// Notifies the repetition of the animation.
+  PAGCallback? onAnimationRepeat;
+
+  /// Notifies the occurrence of another frame of the animation.
+  PAGCallback? onAnimationUpdate;
 
   static const int REPEAT_COUNT_LOOP = -1; //无限循环
   static const int REPEAT_COUNT_DEFAULT = 1; //默认仅播放一次
 
-  PAGView.network(this.url, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, this.loadCallback, Key? key}) : super(key: key);
+  PAGView.network(
+    this.url, {
+    this.width,
+    this.height,
+    this.repeatCount,
+    this.initProgress,
+    this.autoPlay = false,
+    this.onInit,
+    this.onAnimationStart,
+    this.onAnimationEnd,
+    this.onAnimationCancel,
+    this.onAnimationRepeat,
+    this.onAnimationUpdate,
+    Key? key,
+  }) : super(key: key);
 
-  PAGView.asset(this.assetName, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, this.package, this.loadCallback, Key? key}) : super(key: key);
+  PAGView.asset(
+    this.assetName, {
+    this.width,
+    this.height,
+    this.repeatCount,
+    this.initProgress,
+    this.autoPlay = false,
+    this.package,
+    this.onInit,
+    this.onAnimationStart,
+    this.onAnimationEnd,
+    this.onAnimationCancel,
+    this.onAnimationRepeat,
+    this.onAnimationUpdate,
+    Key? key,
+  }) : super(key: key);
 
-  PAGView.bytes(this.bytesData, {this.width, this.height, this.repeatCount, this.initProgress, this.autoPlay = false, this.package, this.loadCallback, Key? key}) : super(key: key);
+  PAGView.bytes(
+    this.bytesData, {
+    this.width,
+    this.height,
+    this.repeatCount,
+    this.initProgress,
+    this.autoPlay = false,
+    this.package,
+    this.onInit,
+    this.onAnimationStart,
+    this.onAnimationEnd,
+    this.onAnimationCancel,
+    this.onAnimationRepeat,
+    this.onAnimationUpdate,
+    Key? key,
+  }) : super(key: key);
 
   @override
   PAGViewState createState() => PAGViewState();
@@ -75,19 +137,36 @@ class PAGViewState extends State<PAGView> {
   static const String _argumentPointX = 'x';
   static const String _argumentPointY = 'y';
   static const String _argumentProgress = 'progress';
+  static const String _argumentEvent = 'PAGEvent';
 
   // 监听该函数
-  static const String _playCallback = 'playCallback';
+  static const String _playCallback = 'PAGCallback';
+  static const String _eventStart = 'onAnimationStart';
+  static const String _eventEnd = 'onAnimationEnd';
+  static const String _eventCancel = 'onAnimationCancel';
+  static const String _eventRepeat = 'onAnimationRepeat';
+  static const String _eventUpdate = 'onAnimationUpdate';
 
   @override
   void initState() {
     super.initState();
     newTexture();
-    // _channel.setMethodCallHandler((result) {
-    //   if (_textureId > 0 && result.arguments[_argumentTextureId] == _textureId) {}
-    //
-    //   return null;
-    // });
+
+    // 事件回调
+    var events = <String, PAGCallback?>{
+      _eventStart: widget.onAnimationStart,
+      _eventEnd: widget.onAnimationEnd,
+      _eventCancel: widget.onAnimationCancel,
+      _eventRepeat: widget.onAnimationRepeat,
+      _eventUpdate: widget.onAnimationUpdate,
+    };
+
+    _channel.setMethodCallHandler((result) {
+      if (_textureId > 0 && result.method == _playCallback && result.arguments[_argumentTextureId] == _textureId) {
+        events[_argumentEvent]?.call();
+      }
+      return Future<dynamic>.value();
+    });
   }
 
   void newTexture() async {
@@ -107,7 +186,7 @@ class PAGViewState extends State<PAGView> {
         setState(() {
           _hasLoadTexture = true;
         });
-        widget.loadCallback?.call();
+        widget.onInit?.call();
       } else {
         _channel.invokeMethod(_nativeRelease, {_argumentTextureId: _textureId});
       }

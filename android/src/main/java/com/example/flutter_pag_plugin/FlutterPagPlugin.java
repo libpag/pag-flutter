@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 import android.view.Surface;
 
 import androidx.annotation.NonNull;
@@ -72,6 +71,16 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     final static String _argumentPointX = "x";
     final static String _argumentPointY = "y";
     final static String _argumentProgress = "progress";
+    final static String _argumentEvent = "PAGEvent";
+
+    // 回调
+    final static String _playCallback = "PAGCallback";
+    final static String _eventStart = "onAnimationStart";
+    final static String _eventEnd = "onAnimationEnd";
+    final static String _eventCancel = "onAnimationCancel";
+    final static String _eventRepeat = "onAnimationRepeat";
+    final static String _eventUpdate = "onAnimationUpdate";
+
 
     public FlutterPagPlugin() {
     }
@@ -214,7 +223,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
         entryMap.put(String.valueOf(entry.id()), entry);
 
-        pagPlayer.init(composition, repeatCount, initProgress);
+        pagPlayer.init(composition, repeatCount, initProgress, channel, String.valueOf(entry.id()));
         SurfaceTexture surfaceTexture = entry.surfaceTexture();
         surfaceTexture.setDefaultBufferSize(composition.width(), composition.height());
 
