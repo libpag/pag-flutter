@@ -223,7 +223,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
         entryMap.put(String.valueOf(entry.id()), entry);
 
-        pagPlayer.init(composition, repeatCount, initProgress, channel, String.valueOf(entry.id()));
+        pagPlayer.init(composition, repeatCount, initProgress, channel, entry.id());
         SurfaceTexture surfaceTexture = entry.surfaceTexture();
         surfaceTexture.setDefaultBufferSize(composition.width(), composition.height());
 

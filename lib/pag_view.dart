@@ -112,8 +112,6 @@ class PAGViewState extends State<PAGView> {
   double rawWidth = 0;
   double rawHeight = 0;
 
-  static const MethodChannel _channel = const MethodChannel('flutter_pag_plugin');
-
   // 原生接口
   static const String _nativeInit = 'initPag';
   static const String _nativeRelease = 'release';
@@ -147,28 +145,25 @@ class PAGViewState extends State<PAGView> {
   static const String _eventRepeat = 'onAnimationRepeat';
   static const String _eventUpdate = 'onAnimationUpdate';
 
+  // 回调监听
+  static MethodChannel _channel = (const MethodChannel('flutter_pag_plugin')
+    ..setMethodCallHandler((result) {
+      if (result.method == _playCallback && result.arguments[_argumentTextureId]) {
+        callbackHandlers[result.arguments[_argumentTextureId]]?.call(result.arguments[_argumentEvent]);
+      }
+
+      return Future<dynamic>.value();
+    }));
+
+  static Map<int, Function(String event)?> callbackHandlers = {};
+
   @override
   void initState() {
     super.initState();
     newTexture();
-
-    // 事件回调
-    var events = <String, PAGCallback?>{
-      _eventStart: widget.onAnimationStart,
-      _eventEnd: widget.onAnimationEnd,
-      _eventCancel: widget.onAnimationCancel,
-      _eventRepeat: widget.onAnimationRepeat,
-      _eventUpdate: widget.onAnimationUpdate,
-    };
-
-    _channel.setMethodCallHandler((result) {
-      if (_textureId > 0 && result.method == _playCallback && result.arguments[_argumentTextureId] == _textureId) {
-        events[_argumentEvent]?.call();
-      }
-      return Future<dynamic>.value();
-    });
   }
 
+  // 初始化
   void newTexture() async {
     int repeatCount = widget.repeatCount ?? PAGView.REPEAT_COUNT_DEFAULT;
     if (repeatCount <= 0 && repeatCount != PAGView.REPEAT_COUNT_LOOP) {
@@ -193,8 +188,23 @@ class PAGViewState extends State<PAGView> {
     } catch (e) {
       print('PAGViewState error: $e');
     }
+
+    // 事件回调
+    if (_textureId >= 0) {
+      var events = <String, PAGCallback?>{
+        _eventStart: widget.onAnimationStart,
+        _eventEnd: widget.onAnimationEnd,
+        _eventCancel: widget.onAnimationCancel,
+        _eventRepeat: widget.onAnimationRepeat,
+        _eventUpdate: widget.onAnimationUpdate,
+      };
+      callbackHandlers[_textureId] = (event) {
+        events[event]?.call();
+      };
+    }
   }
 
+  /// 开始
   void start() {
     if (!_hasLoadTexture) {
       return;
@@ -202,6 +212,7 @@ class PAGViewState extends State<PAGView> {
     _channel.invokeMethod(_nativeStart, {_argumentTextureId: _textureId});
   }
 
+  /// 停止
   void stop() {
     if (!_hasLoadTexture) {
       return;
@@ -209,6 +220,7 @@ class PAGViewState extends State<PAGView> {
     _channel.invokeMethod(_nativeStop, {_argumentTextureId: _textureId});
   }
 
+  /// 暂停
   void pause() {
     if (!_hasLoadTexture) {
       return;
@@ -216,6 +228,7 @@ class PAGViewState extends State<PAGView> {
     _channel.invokeMethod(_nativePause, {_argumentTextureId: _textureId});
   }
 
+  /// 设置进度
   void setProgress(double progress) {
     if (!_hasLoadTexture) {
       return;
@@ -223,6 +236,7 @@ class PAGViewState extends State<PAGView> {
     _channel.invokeMethod(_nativeSetProgress, {_argumentTextureId: _textureId, _argumentProgress: progress});
   }
 
+  /// 获取某一位置的图层
   Future<List<String>> getLayersUnderPoint(double x, double y) async {
     if (!_hasLoadTexture) {
       return [];
@@ -247,5 +261,6 @@ class PAGViewState extends State<PAGView> {
   void dispose() {
     super.dispose();
     _channel.invokeMethod(_nativeRelease, {_argumentTextureId: _textureId});
+    callbackHandlers.remove(_textureId);
   }
 }

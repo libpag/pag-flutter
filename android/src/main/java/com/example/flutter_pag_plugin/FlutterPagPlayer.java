@@ -25,9 +25,9 @@ public class FlutterPagPlayer extends PAGPlayer {
     private ReleaseListener releaseListener;
 
     private MethodChannel channel;
-    private String textureId;
+    private long textureId;
 
-    public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, String textureId) {
+    public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
         setComposition(file);
         this.channel = channel;
         this.textureId = textureId;
