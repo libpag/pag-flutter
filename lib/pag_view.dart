@@ -1,8 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-
-import 'flutter_pag_plugin.dart';
+import 'package:flutter/services.dart';
 
 class PAGView extends StatefulWidget {
   double? width;
@@ -51,10 +50,44 @@ class PAGViewState extends State<PAGView> {
   double rawWidth = 0;
   double rawHeight = 0;
 
+  static const MethodChannel _channel = const MethodChannel('flutter_pag_plugin');
+
+  // 原生接口
+  static const String _nativeInit = 'initPag';
+  static const String _nativeRelease = 'release';
+  static const String _nativeStart = 'start';
+  static const String _nativeStop = 'stop';
+  static const String _nativePause = 'pause';
+  static const String _nativeSetProgress = 'setProgress';
+  static const String _nativeGetPointLayer = 'getLayersUnderPoint';
+
+  // 参数
+  static const String _argumentTextureId = 'textureId';
+  static const String _argumentAssetName = 'assetName';
+  static const String _argumentPackage = 'package';
+  static const String _argumentUrl = 'url';
+  static const String _argumentBytes = 'bytesData';
+  static const String _argumentRepeatCount = 'repeatCount';
+  static const String _argumentInitProgress = 'initProgress';
+  static const String _argumentAutoPlay = 'autoPlay';
+  static const String _argumentWidth = 'width';
+  static const String _argumentHeight = 'height';
+  static const String _argumentPointX = 'x';
+  static const String _argumentPointY = 'y';
+  static const String _argumentProgress = 'progress';
+
+  // 监听该函数
+  static const String _playCallback = 'playCallback';
+
   @override
   void initState() {
     super.initState();
     newTexture();
+    // _channel.setMethodCallHandler((result) {
+    //   if (_textureId > 0 && result.arguments[_argumentTextureId] == _textureId) {}
+    //
+    //   return null;
+    // });
   }
 
   void newTexture() async {
@@ -64,11 +97,11 @@ class PAGViewState extends State<PAGView> {
     }
 
     try {
-      dynamic r = await FlutterPagPlugin.getChannel().invokeMethod('initPag', {'assetName': widget.assetName, 'package': widget.package, 'url': widget.url, 'bytesData':widget.bytesData, 'repeatCount': widget.repeatCount, 'initProgress': widget.initProgress ?? 0, 'autoPlay': widget.autoPlay});
-      if (r is Map) {
-        _textureId = r['textureId'];
-        rawWidth = r['width'] ?? 0;
-        rawHeight = r['height'] ?? 0;
+      dynamic result = await _channel.invokeMethod(_nativeInit, {_argumentAssetName: widget.assetName, _argumentPackage: widget.package, _argumentUrl: widget.url, _argumentBytes: widget.bytesData, _argumentRepeatCount: widget.repeatCount, _argumentInitProgress: widget.initProgress ?? 0, _argumentAutoPlay: widget.autoPlay});
+      if (result is Map) {
+        _textureId = result[_argumentTextureId];
+        rawWidth = result[_argumentWidth] ?? 0;
+        rawHeight = result[_argumentHeight] ?? 0;
       }
       if (mounted) {
         setState(() {
@@ -76,10 +109,10 @@ class PAGViewState extends State<PAGView> {
         });
         widget.loadCallback?.call();
       } else {
-        FlutterPagPlugin.getChannel().invokeMethod('release', {'textureId': _textureId});
+        _channel.invokeMethod(_nativeRelease, {_argumentTextureId: _textureId});
       }
     } catch (e) {
-      print("PAGViewState error: $e");
+      print('PAGViewState error: $e');
     }
   }
 
@@ -87,35 +120,35 @@ class PAGViewState extends State<PAGView> {
     if (!_hasLoadTexture) {
       return;
     }
-    FlutterPagPlugin.getChannel().invokeMethod('start', {'textureId': _textureId});
+    _channel.invokeMethod(_nativeStart, {_argumentTextureId: _textureId});
   }
 
   void stop() {
     if (!_hasLoadTexture) {
       return;
     }
-    FlutterPagPlugin.getChannel().invokeMethod('stop', {'textureId': _textureId});
+    _channel.invokeMethod(_nativeStop, {_argumentTextureId: _textureId});
   }
 
   void pause() {
     if (!_hasLoadTexture) {
       return;
     }
-    FlutterPagPlugin.getChannel().invokeMethod('pause', {'textureId': _textureId});
+    _channel.invokeMethod(_nativePause, {_argumentTextureId: _textureId});
   }
 
   void setProgress(double progress) {
     if (!_hasLoadTexture) {
       return;
     }
-    FlutterPagPlugin.getChannel().invokeMethod('setProgress', {'textureId': _textureId, 'progress': progress});
+    _channel.invokeMethod(_nativeSetProgress, {_argumentTextureId: _textureId, _argumentProgress: progress});
   }
 
   Future<List<String>> getLayersUnderPoint(double x, double y) async {
     if (!_hasLoadTexture) {
       return [];
     }
-    return (await FlutterPagPlugin.getChannel().invokeMethod('getLayersUnderPoint', {'textureId': _textureId, 'x': x, 'y': y}) as List).map((e) => e.toString()).toList();
+    return (await _channel.invokeMethod(_nativeGetPointLayer, {_argumentTextureId: _textureId, _argumentPointX: x, _argumentPointY: y}) as List).map((e) => e.toString()).toList();
   }
 
   @override
@@ -134,6 +167,6 @@ class PAGViewState extends State<PAGView> {
   @override
   void dispose() {
     super.dispose();
-    FlutterPagPlugin.getChannel().invokeMethod('release', {'textureId': _textureId});
+    _channel.invokeMethod(_nativeRelease, {_argumentTextureId: _textureId});
   }
 }
