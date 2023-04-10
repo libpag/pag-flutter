@@ -38,6 +38,16 @@ PagView.url(
     autoPlay: true, // 是否自动播放
   )
 ```
+### 使用二进制数据
+```
+PagView.bytes(
+    "xxxx", //网络链接
+    repeatCount: PagView.REPEAT_COUNT_LOOP, // 循环次数
+    initProgress: 0.25, // 初始进度
+    key: pagKey,  // 利用key进行主动调用
+    autoPlay: true, // 是否自动播放
+  )
+```
 ### 通过key获取state进行主动调用
 ```
   final GlobalKey<PagViewState> pagKey = GlobalKey<PagViewState>();
