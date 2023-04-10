@@ -110,7 +110,7 @@
 }
 
 - (void)initPag:(id)arguments result:(FlutterResult _Nonnull)result {
-    if (arguments == nil || (arguments[@"assetName"] == nil && arguments[@"url"] == nil)) {
+    if (arguments == nil || (arguments[@"assetName"] == NSNull.null && arguments[@"url"] == NSNull.null && arguments[@"bytesData"] == NSNull.null)) {
         result(@-1);
         NSLog(@"showPag arguments is nil");
         return;
@@ -169,6 +169,16 @@
             }];
         }else{
             [self pagRenderWithPagData:pagData progress:initProgress repeatCount:repeatCount autoPlay:autoPlay result:result];
+        }
+    }
+    
+    id bytesData = arguments[@"bytesData"];
+    if(bytesData != nil && [bytesData isKindOfClass:FlutterStandardTypedData.class]){
+        FlutterStandardTypedData *typedData = bytesData;
+        if(typedData.type == FlutterStandardDataTypeUInt8 && typedData.data != nil){
+            [self pagRenderWithPagData:typedData.data progress:initProgress repeatCount:repeatCount autoPlay:autoPlay result:result];
+        }else{
+            result(@-1);
         }
     }
 }
