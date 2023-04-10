@@ -48,6 +48,30 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     public HashMap<String, FlutterPagPlayer> layerMap = new HashMap<String, FlutterPagPlayer>();
     public HashMap<String, TextureRegistry.SurfaceTextureEntry> entryMap = new HashMap<String, TextureRegistry.SurfaceTextureEntry>();
 
+    // 原生接口
+    final static String _nativeInit = "initPag";
+    final static String _nativeRelease = "release";
+    final static String _nativeStart = "start";
+    final static String _nativeStop = "stop";
+    final static String _nativePause = "pause";
+    final static String _nativeSetProgress = "setProgress";
+    final static String _nativeGetPointLayer = "getLayersUnderPoint";
+
+    // 参数
+    final static String _argumentTextureId = "textureId";
+    final static String _argumentAssetName = "assetName";
+    final static String _argumentPackage = "package";
+    final static String _argumentUrl = "url";
+    final static String _argumentBytes = "bytesData";
+    final static String _argumentRepeatCount = "repeatCount";
+    final static String _argumentInitProgress = "initProgress";
+    final static String _argumentAutoPlay = "autoPlay";
+    final static String _argumentWidth = "width";
+    final static String _argumentHeight = "height";
+    final static String _argumentPointX = "x";
+    final static String _argumentPointY = "y";
+    final static String _argumentProgress = "progress";
+
     public FlutterPagPlugin() {
     }
 
@@ -87,33 +111,30 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
         switch (call.method) {
-            case "initPag":
+            case _nativeInit:
                 initPag(call, result);
                 break;
-            case "start":
+            case _nativeStart:
                 start(call);
                 result.success("");
                 break;
-            case "stop":
+            case _nativeStop:
                 stop(call);
                 result.success("");
                 break;
-            case "pause":
+            case _nativePause:
                 pause(call);
                 result.success("");
                 break;
-            case "setProgress":
+            case _nativeSetProgress:
                 setProgress(call);
                 result.success("");
                 break;
-            case "release":
+            case _nativeRelease:
                 release(call);
                 result.success("");
                 break;
-            case "getPlatformVersion":
-                result.success("Android " + android.os.Build.VERSION.RELEASE);
-                break;
-            case "getLayersUnderPoint":
+            case _nativeGetPointLayer:
                 result.success(getLayersUnderPoint(call));
                 break;
             default:
@@ -123,11 +144,14 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     private void initPag(final MethodCall call, final Result result) {
-        String assetName = call.argument("assetName");
-        String url = call.argument("url");
-        String flutterPackage = call.argument("package");
+        String assetName = call.argument(_argumentAssetName);
+        String bytes = call.argument(_argumentBytes);
+        String url = call.argument(_argumentUrl);
+        String flutterPackage = call.argument(_argumentPackage);
 
-        if (assetName != null) {
+        if (bytes != null) {
+            initPagPlayerAndCallback(PAGFile.Load(bytes), call, result);
+        } else if (assetName != null) {
             String assetKey = "";
 
             if (registrar != null) {
@@ -181,9 +205,9 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             return;
         }
 
-        final int repeatCount = call.argument("repeatCount");
-        final double initProgress = call.argument("initProgress");
-        final boolean autoPlay = call.argument("autoPlay");
+        final int repeatCount = call.argument(_argumentRepeatCount);
+        final double initProgress = call.argument(_argumentInitProgress);
+        final boolean autoPlay = call.argument(_argumentAutoPlay);
 
         final FlutterPagPlayer pagPlayer = new FlutterPagPlayer();
         final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
@@ -207,9 +231,9 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
         layerMap.put(String.valueOf(entry.id()), pagPlayer);
         final HashMap<String, Object> callback = new HashMap<String, Object>();
-        callback.put("textureId", entry.id());
-        callback.put("width", (double) composition.width());
-        callback.put("height", (double) composition.height());
+        callback.put(_argumentTextureId, entry.id());
+        callback.put(_argumentWidth, (double) composition.width());
+        callback.put(_argumentHeight, (double) composition.height());
 
         handler.post(new Runnable() {
             @Override
@@ -245,7 +269,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     void setProgress(MethodCall call) {
-        double progress = call.argument("progress");
+        double progress = call.argument(_argumentProgress);
         FlutterPagPlayer flutterPagPlayer = getFlutterPagPlayer(call);
         if (flutterPagPlayer != null) {
             flutterPagPlayer.setProgressValue(progress);
@@ -272,7 +296,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         PAGLayer[] layers = null;
         if (flutterPagPlayer != null) {
             layers = flutterPagPlayer.getLayersUnderPoint(
-                    ((Double) call.argument("x")).floatValue(), ((Double) call.argument("y")).floatValue());
+                    ((Double) call.argument(_argumentPointX)).floatValue(), ((Double) call.argument(_argumentPointY)).floatValue());
         }
 
         if (layers != null) {
@@ -289,7 +313,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     String getTextureId(MethodCall call) {
-        return "" + call.argument("textureId");
+        return "" + call.argument(_argumentTextureId);
     }
 
     //插件销毁
@@ -302,7 +326,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         }
         layerMap.clear();
         entryMap.clear();
-//        channel.setMethodCallHandler(null);
+        channel.setMethodCallHandler(null);
     }
 
     @Override
