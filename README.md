@@ -66,9 +66,6 @@ PAGView.asset(
     onAnimationCancel: (){ // 取消
       // do something
     },
-    onAnimationUpdate: (){ // 更新
-      // do something
-    },
 ```
 
 ### 通过key获取state进行主动调用
