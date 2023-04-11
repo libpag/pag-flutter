@@ -85,7 +85,6 @@ public class FlutterPagPlayer extends PAGPlayer {
         if (isRelease) {
             return false;
         }
-        notifyEvent(FlutterPagPlugin._eventUpdate);
         return super.flush();
     }
 

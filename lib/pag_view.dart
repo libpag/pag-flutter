@@ -45,9 +45,6 @@ class PAGView extends StatefulWidget {
   /// Notifies the repetition of the animation.
   PAGCallback? onAnimationRepeat;
 
-  /// Notifies the occurrence of another frame of the animation.
-  PAGCallback? onAnimationUpdate;
-
   static const int REPEAT_COUNT_LOOP = -1; //无限循环
   static const int REPEAT_COUNT_DEFAULT = 1; //默认仅播放一次
 
@@ -63,7 +60,6 @@ class PAGView extends StatefulWidget {
     this.onAnimationEnd,
     this.onAnimationCancel,
     this.onAnimationRepeat,
-    this.onAnimationUpdate,
     Key? key,
   }) : super(key: key);
 
@@ -80,7 +76,6 @@ class PAGView extends StatefulWidget {
     this.onAnimationEnd,
     this.onAnimationCancel,
     this.onAnimationRepeat,
-    this.onAnimationUpdate,
     Key? key,
   }) : super(key: key);
 
@@ -97,7 +92,6 @@ class PAGView extends StatefulWidget {
     this.onAnimationEnd,
     this.onAnimationCancel,
     this.onAnimationRepeat,
-    this.onAnimationUpdate,
     Key? key,
   }) : super(key: key);
 
@@ -196,7 +190,6 @@ class PAGViewState extends State<PAGView> {
         _eventEnd: widget.onAnimationEnd,
         _eventCancel: widget.onAnimationCancel,
         _eventRepeat: widget.onAnimationRepeat,
-        _eventUpdate: widget.onAnimationUpdate,
       };
       callbackHandlers[_textureId] = (event) {
         events[event]?.call();
