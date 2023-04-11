@@ -1,6 +1,6 @@
-name: flutter_pag_plugin
+name: pag
 description: PAG for flutter
-version: 1.2.4
+version: 1.0.0
 homepage: https://github.com/libpag/pag-flutter
 
 environment:
