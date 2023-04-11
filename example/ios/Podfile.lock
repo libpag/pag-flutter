@@ -1,14 +1,14 @@
 PODS:
   - Flutter (1.0.0)
-  - flutter_pag_plugin (0.0.1):
+  - libpag (4.0.5.17)
+  - pag (0.0.1):
     - Flutter
     - libpag
-  - libpag (4.0.5.17)
 
 DEPENDENCIES:
   - Flutter (from `Flutter`)
-  - flutter_pag_plugin (from `.symlinks/plugins/flutter_pag_plugin/ios`)
   - libpag
+  - pag (from `.symlinks/plugins/pag/ios`)
 
 SPEC REPOS:
   trunk:
@@ -17,13 +17,13 @@ SPEC REPOS:
 EXTERNAL SOURCES:
   Flutter:
     :path: Flutter
-  flutter_pag_plugin:
-    :path: ".symlinks/plugins/flutter_pag_plugin/ios"
+  pag:
+    :path: ".symlinks/plugins/pag/ios"
 
 SPEC CHECKSUMS:
   Flutter: 50d75fe2f02b26cc09d224853bb45737f8b3214a
-  flutter_pag_plugin: dc9bfb74eca8bcef7a62655873a951237d0ee4b2
   libpag: c704ce5c2a4c3fcb59e0fcde4d5e18610d5b789d
+  pag: ff30ba5e4be59380a5ddac6b183905729be15a3c
 
 PODFILE CHECKSUM: de9ac49b3da961465d87ba3338db1b076549f1bb
 
