@@ -12,6 +12,10 @@
 /**
  FlutterPagPlugin，处理flutter MethodChannel约定的方法
  */
+#define PlayCallback @"PAGCallback"
+#define ArgumentEvent @"PAGEvent"
+#define ArgumentTextureId @"textureId"
+
 @interface FlutterPagPlugin()
 
 /// flutter引擎注册的textures对象
@@ -26,6 +30,9 @@
 /// pag对象的缓存
 @property (nonatomic, strong)NSCache<NSString*, NSData *> *cache;
 
+/// 用于通信的channel
+@property (nonatomic, strong)FlutterMethodChannel* channel;
+
 @end
 
 @implementation FlutterPagPlugin
@@ -36,6 +43,7 @@
   FlutterPagPlugin* instance = [[FlutterPagPlugin alloc] init];
     instance.textures = registrar.textures;
     instance.registrar = registrar;
+    instance.channel = channel;
   [registrar addMethodCallDelegate:instance channel:channel];
 }
 
@@ -210,8 +218,10 @@
 -(void)pagRenderWithPagData:(NSData *)pagData progress:(double)progress repeatCount:(int)repeatCount autoPlay:(BOOL)autoPlay result:(FlutterResult)result{
     __block int64_t textureId = -1;
     __weak typeof(self) weakSelf = self;
-    TGFlutterPagRender *render = [[TGFlutterPagRender alloc] initWithPagData:pagData progress:progress autoPlay:autoPlay frameUpdateCallback:^{
+    TGFlutterPagRender *render = [[TGFlutterPagRender alloc] initWithPagData:pagData progress:progress frameUpdateCallback:^{
          [weakSelf.textures textureFrameAvailable:textureId];
+    } eventCallback:^(NSString * event) {
+        [weakSelf.channel invokeMethod:PlayCallback arguments:@{ArgumentTextureId:@(textureId), ArgumentEvent:EventStart}];
     }];
     [render setRepeatCount:repeatCount];
     textureId = [self.textures registerTexture:render];
@@ -220,6 +230,9 @@
     }
     [_renderMap setObject:render forKey:@(textureId)];
     result(@{@"textureId":@(textureId), @"width":@([render size].width), @"height":@([render size].height)});
+    if(autoPlay){
+        [render startRender];
+    }
 }
 
 -(NSData *)getCacheData:(NSString *)key{

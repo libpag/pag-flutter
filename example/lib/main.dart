@@ -63,7 +63,7 @@ class _MyHomeState extends State<MyHome> {
                 height: 100,
                 child: PAGView.asset(
                   "data/fans.pag",
-                  repeatCount: PAGView.REPEAT_COUNT_LOOP,
+                  repeatCount: PAGView.REPEAT_COUNT_DEFAULT,
                   initProgress: 0.25,
                   autoPlay: true,
                   key: assetPagKey,

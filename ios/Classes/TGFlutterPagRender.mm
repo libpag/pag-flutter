@@ -26,6 +26,9 @@
 
 @property(nonatomic, assign)double initProgress;
 
+@property(nonatomic, assign)BOOL endEvent;
+
+
 @end
 
 static int64_t GetCurrentTimeUS() {
@@ -37,11 +40,13 @@ static int64_t GetCurrentTimeUS() {
 
 @implementation TGFlutterPagRender
 {
-    FrameUpdateCallback _callback;
+    FrameUpdateCallback _frameUpdateCallback;
+    PAGEventCallback _eventCallback;
     CADisplayLink *_displayLink;
     int _lastUpdateTs;
     int _repeatCount;
     int64_t start;
+    int64_t _currRepeatCount;
 }
 
 - (CVPixelBufferRef)copyPixelBuffer {
@@ -55,9 +60,18 @@ static int64_t GetCurrentTimeUS() {
     double value = 0;
     if (_repeatCount >= 0 && count >= _repeatCount) {
         value = 1;
+        if(!_endEvent){
+            _endEvent = YES;
+            _eventCallback(EventEnd);
+        }
     } else {
+        _endEvent = NO;
         double playTime = (timestamp - start) % duration;
         value = static_cast<double>(playTime) / duration;
+        if (_currRepeatCount < count) {
+            _currRepeatCount = count;
+            _eventCallback(EventRepeat);
+        }
     }
     [_player setProgress:value];
     [_player flush];
@@ -68,25 +82,22 @@ static int64_t GetCurrentTimeUS() {
 
 - (instancetype)initWithPagData:(NSData*)pagData
                        progress:(double)initProgress
-                       autoPlay:(BOOL)autoPlay
-            frameUpdateCallback:(FrameUpdateCallback)callback
+            frameUpdateCallback:(FrameUpdateCallback)frameUpdateCallback
+                  eventCallback:(PAGEventCallback)eventCallback
 {
     if (self = [super init]) {
-        _callback = callback;
+        _frameUpdateCallback = frameUpdateCallback;
+        _eventCallback = eventCallback;
         _initProgress = initProgress;
         if(pagData){
             _pagFile = [PAGFile Load:pagData.bytes size:pagData.length];
-//            _pagFile = [PAGFile Load:resourcePath];
             _player = [[PAGPlayer alloc] init];
             [_player setComposition:_pagFile];
             _surface = [PAGSurface MakeFromGPU:CGSizeMake(_pagFile.width, _pagFile.height)];
             [_player setSurface:_surface];
             [_player setProgress:initProgress];
             [_player flush];
-            _callback();
-            if(autoPlay){
-                [self startRender];
-            }
+            _frameUpdateCallback();
         }
     }
     return self;
@@ -99,6 +110,7 @@ static int64_t GetCurrentTimeUS() {
         [_displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
     }
     start = GetCurrentTimeUS();
+    _eventCallback(EventStart);
 }
 
 - (void)stopRender
@@ -109,7 +121,12 @@ static int64_t GetCurrentTimeUS() {
     }
     [_player setProgress:_initProgress];
     [_player flush];
-    _callback();
+    _frameUpdateCallback();
+    if(!_endEvent){
+        _endEvent = YES;
+        _eventCallback(EventEnd);
+    }
+    _eventCallback(EventCancel);
 }
 
 - (void)pauseRender{
@@ -125,7 +142,7 @@ static int64_t GetCurrentTimeUS() {
 - (void)setProgress:(double)progress{
     [_player setProgress:progress];
     [_player flush];
-    _callback();
+    _frameUpdateCallback();
 }
 
 - (NSArray<NSString *> *)getLayersUnderPoint:(CGPoint)point{
@@ -143,7 +160,7 @@ static int64_t GetCurrentTimeUS() {
 
 - (void)update
 {
-    _callback();
+    _frameUpdateCallback();
 }
 
 - (void)releaseRender{
@@ -154,7 +171,8 @@ static int64_t GetCurrentTimeUS() {
 }
 
 - (void)dealloc {
-    _callback = nil;
+    _frameUpdateCallback = nil;
+    _eventCallback = nil;
     _surface = nil;
     self.pagFile = nil;
     self.player = nil;

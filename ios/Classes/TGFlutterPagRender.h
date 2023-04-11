@@ -11,7 +11,14 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+#define EventStart @"onAnimationStart"
+#define EventEnd @"onAnimationEnd"
+#define EventCancel @"onAnimationCancel"
+#define EventRepeat @"onAnimationRepeat"
+
 typedef void(^FrameUpdateCallback)(void);
+
+typedef void(^PAGEventCallback)(NSString *);
 
 /**
  Pag纹理渲染类
@@ -23,8 +30,8 @@ typedef void(^FrameUpdateCallback)(void);
 
 - (instancetype)initWithPagData:(NSData*)pagData
                        progress:(double)initProgress
-                       autoPlay:(BOOL)autoPlay
-            frameUpdateCallback:(FrameUpdateCallback)callback;
+            frameUpdateCallback:(FrameUpdateCallback)frameUpdateCallback
+                  eventCallback:(PAGEventCallback)eventCallback;
 
 - (void)startRender;
 
