@@ -55,10 +55,10 @@ static int64_t GetCurrentTimeUS() {
     if(duration <= 0){
         duration = 1;
     }
+    int64_t timestamp = GetCurrentTimeUS();
     if(start == 0){
         start = timestamp;
     }
-    int64_t timestamp = GetCurrentTimeUS();
     auto count = (timestamp - start) / duration;
     double value = 0;
     if (_repeatCount >= 0 && count >= _repeatCount) {
