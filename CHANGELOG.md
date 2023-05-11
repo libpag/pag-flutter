@@ -1,3 +1,6 @@
+## 1.0.2
+* 修正Android repeatCount空异常
+
 ## 1.0.1
 * 修正命名规范的疏漏，podspec未修改
 

@@ -22,13 +22,13 @@ class PAGView extends StatefulWidget {
   String? package;
 
   /// 初始化时播放进度
-  double? initProgress;
+  double initProgress;
 
   /// 初始化后自动播放
   bool autoPlay;
 
   /// 循环次数
-  int? repeatCount;
+  int repeatCount;
 
   /// 初始化完成
   PAGCallback? onInit;
@@ -52,8 +52,8 @@ class PAGView extends StatefulWidget {
     this.url, {
     this.width,
     this.height,
-    this.repeatCount,
-    this.initProgress,
+    this.repeatCount = REPEAT_COUNT_DEFAULT,
+    this.initProgress = 0,
     this.autoPlay = false,
     this.onInit,
     this.onAnimationStart,
@@ -67,8 +67,8 @@ class PAGView extends StatefulWidget {
     this.assetName, {
     this.width,
     this.height,
-    this.repeatCount,
-    this.initProgress,
+    this.repeatCount = REPEAT_COUNT_DEFAULT,
+    this.initProgress = 0,
     this.autoPlay = false,
     this.package,
     this.onInit,
@@ -83,8 +83,8 @@ class PAGView extends StatefulWidget {
     this.bytesData, {
     this.width,
     this.height,
-    this.repeatCount,
-    this.initProgress,
+    this.repeatCount = REPEAT_COUNT_DEFAULT,
+    this.initProgress = 0,
     this.autoPlay = false,
     this.package,
     this.onInit,
@@ -159,13 +159,11 @@ class PAGViewState extends State<PAGView> {
 
   // 初始化
   void newTexture() async {
-    int repeatCount = widget.repeatCount ?? PAGView.REPEAT_COUNT_DEFAULT;
-    if (repeatCount <= 0 && repeatCount != PAGView.REPEAT_COUNT_LOOP) {
-      repeatCount = PAGView.REPEAT_COUNT_DEFAULT;
-    }
+    int repeatCount = widget.repeatCount <= 0 && widget.repeatCount != PAGView.REPEAT_COUNT_LOOP ? PAGView.REPEAT_COUNT_DEFAULT : widget.repeatCount;
+    double initProcess = widget.initProgress < 0 ? 0 : widget.initProgress;
 
     try {
-      dynamic result = await _channel.invokeMethod(_nativeInit, {_argumentAssetName: widget.assetName, _argumentPackage: widget.package, _argumentUrl: widget.url, _argumentBytes: widget.bytesData, _argumentRepeatCount: widget.repeatCount, _argumentInitProgress: widget.initProgress ?? 0, _argumentAutoPlay: widget.autoPlay});
+      dynamic result = await _channel.invokeMethod(_nativeInit, {_argumentAssetName: widget.assetName, _argumentPackage: widget.package, _argumentUrl: widget.url, _argumentBytes: widget.bytesData, _argumentRepeatCount: repeatCount, _argumentInitProgress: initProcess, _argumentAutoPlay: widget.autoPlay});
       if (result is Map) {
         _textureId = result[_argumentTextureId];
         rawWidth = result[_argumentWidth] ?? 0;

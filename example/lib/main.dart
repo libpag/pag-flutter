@@ -24,11 +24,26 @@ class MyHome extends StatefulWidget {
 }
 
 class _MyHomeState extends State<MyHome> {
-  final GlobalKey<PAGViewState> assetPagKey = GlobalKey<PAGViewState>();
+
+  GlobalKey<PAGViewState> _fansDanceKey = GlobalKey<PAGViewState>(debugLabel: _assetFans);
+  GlobalKey<PAGViewState> _assetDanceKey = GlobalKey<PAGViewState>(debugLabel: _assetFans);
+  GlobalKey<PAGViewState> get assetPagKey => _pagAsset == _assetFans ? _fansDanceKey : _assetDanceKey;
+
   final GlobalKey<PAGViewState> networkPagKey = GlobalKey<PAGViewState>();
   final GlobalKey<PAGViewState> bytesPagKey = GlobalKey<PAGViewState>();
 
   Uint8List? bytesData;
+
+  // 本地加载资源
+  static const String _assetFans = 'data/fans.pag';
+  static const String _assetDance = 'data/dance.pag';
+  String _pagAsset = _assetFans;
+
+  void changeAsset() {
+    setState(() {
+      _pagAsset = _pagAsset == _assetFans ? _assetDance : _assetFans;
+    });
+  }
 
   @override
   void initState() {
@@ -62,7 +77,7 @@ class _MyHomeState extends State<MyHome> {
                 width: 100,
                 height: 100,
                 child: PAGView.asset(
-                  "data/fans.pag",
+                  _pagAsset,
                   repeatCount: PAGView.REPEAT_COUNT_LOOP,
                   initProgress: 0.25,
                   autoPlay: true,
@@ -95,8 +110,15 @@ class _MyHomeState extends State<MyHome> {
                         assetPagKey.currentState?.start();
                       },
                     ),
+                    IconButton(
+                        iconSize: 30,
+                        icon: const Icon(
+                          Icons.published_with_changes_sharp,
+                          color: Colors.black54,
+                        ),
+                        onPressed: changeAsset),
                     Text(
-                      "<= 请点击控制动画",
+                      "<= 请点击控制动画（可切换）",
                       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.black54),
                     ),
                   ],
