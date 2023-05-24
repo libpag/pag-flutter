@@ -113,7 +113,9 @@ static int64_t GetCurrentTimeUS() {
         _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(update)];
         [_displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
     }
-    start = GetCurrentTimeUS();
+    if(start <= 0){
+       start = GetCurrentTimeUS();
+    }
     _eventCallback(EventStart);
 }
 
