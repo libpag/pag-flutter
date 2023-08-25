@@ -1,3 +1,6 @@
+## 1.0.3
+* 删除gradle无用引用
+
 ## 1.0.2
 * 修正Android repeatCount空异常
 
