@@ -37,6 +37,7 @@ class _MyHomeState extends State<MyHome> {
   // 本地加载资源
   static const String _assetFans = 'data/fans.pag';
   static const String _assetDance = 'data/dance.pag';
+  static const String _assetError = 'data/error.pag';
   String _pagAsset = _assetFans;
 
   void changeAsset() {
@@ -223,7 +224,35 @@ class _MyHomeState extends State<MyHome> {
                     ),
                   ],
                 ),
-              )
+              ),
+
+
+              /// TODO: PAGView加载二进制资源
+              Padding(
+                padding: EdgeInsets.only(top: 20, left: 12, bottom: 20),
+                child: Text(
+                  "PAGView加载失败的默认占位图：",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.black54),
+                ),
+              ),
+              SizedBox(
+                width: 100,
+                height: 100,
+                child: PAGView.asset(
+                  _assetError,
+                  repeatCount: PAGView.REPEAT_COUNT_LOOP,
+                  initProgress: 0.25,
+                  autoPlay: true,
+                  defaultBuilder: (context){
+                    return Container(
+                      color: Colors.grey,
+                      alignment: Alignment.center,
+                      margin: EdgeInsets.all(16),
+                      child: Text("load fail"),
+                    );
+                  },
+                ),
+              ),
             ],
           ),
         ));
