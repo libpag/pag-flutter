@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -45,6 +43,9 @@ class PAGView extends StatefulWidget {
   /// Notifies the repetition of the animation.
   PAGCallback? onAnimationRepeat;
 
+  /// 加载失败时的默认控件构造器
+  Widget Function(BuildContext context)? defaultBuilder;
+
   static const int REPEAT_COUNT_LOOP = -1; //无限循环
   static const int REPEAT_COUNT_DEFAULT = 1; //默认仅播放一次
 
@@ -60,6 +61,7 @@ class PAGView extends StatefulWidget {
     this.onAnimationEnd,
     this.onAnimationCancel,
     this.onAnimationRepeat,
+    this.defaultBuilder,
     Key? key,
   }) : super(key: key);
 
@@ -76,6 +78,7 @@ class PAGView extends StatefulWidget {
     this.onAnimationEnd,
     this.onAnimationCancel,
     this.onAnimationRepeat,
+    this.defaultBuilder,
     Key? key,
   }) : super(key: key);
 
@@ -92,6 +95,7 @@ class PAGView extends StatefulWidget {
     this.onAnimationEnd,
     this.onAnimationCancel,
     this.onAnimationRepeat,
+    this.defaultBuilder,
     Key? key,
   }) : super(key: key);
 
@@ -244,7 +248,7 @@ class PAGViewState extends State<PAGView> {
         child: Texture(textureId: _textureId),
       );
     } else {
-      return Container();
+      return widget.defaultBuilder?.call(context) ?? Container();
     }
   }
 
