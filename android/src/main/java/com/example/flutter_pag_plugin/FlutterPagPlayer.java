@@ -78,6 +78,7 @@ public class FlutterPagPlayer extends PAGPlayer {
             releaseListener.onRelease();
         }
         isRelease = true;
+        animator.cancel();
     }
 
     @Override
