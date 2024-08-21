@@ -34,6 +34,6 @@ android {
 
 
 dependencies {
-    implementation "com.tencent.tav:libpag:3.2.7.43"
+    implementation "com.tencent.tav:libpag:4.4.1"
     implementation 'com.jakewharton:disklrucache:2.0.2'
 }
