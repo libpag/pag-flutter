@@ -38,9 +38,9 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     private MethodChannel channel;
     TextureRegistry textureRegistry;
     Context context;
-    io.flutter.plugin.common.PluginRegistry.Registrar registrar;
-    FlutterPlugin.FlutterAssets flutterAssets;
-    private Handler handler = new Handler(Looper.getMainLooper());
+    PluginRegistry.Registrar registrar;
+    FlutterAssets flutterAssets;
+    private final Handler handler = new Handler(Looper.getMainLooper());
 
     // 多引擎使用是plugin的集合，请留意该场景下需手动释放，否则存在内存泄漏的问题
     public static List<FlutterPagPlugin> pluginList = new ArrayList<FlutterPagPlugin>();
@@ -85,7 +85,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     public FlutterPagPlugin() {
     }
 
-    public FlutterPagPlugin(io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
+    public FlutterPagPlugin(PluginRegistry.Registrar registrar) {
         pluginList.add(this);
         this.registrar = registrar;
         textureRegistry = registrar.textures();
@@ -106,7 +106,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         DataLoadHelper.INSTANCE.initDiskCache(context, DataLoadHelper.INSTANCE.DEFAULT_DIS_SIZE);
     }
 
-    public static void registerWith(io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
+    public static void registerWith(PluginRegistry.Registrar registrar) {
         final FlutterPagPlugin plugin = new FlutterPagPlugin(registrar);
         registrar.addViewDestroyListener(new PluginRegistry.ViewDestroyListener() {
             @Override
@@ -247,7 +247,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         handler.post(new Runnable() {
             @Override
             public void run() {
-                pagPlayer.flush();
+                pagPlayer.flushAsync();
                 if (autoPlay) {
                     pagPlayer.start();
                 }
@@ -340,6 +340,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
+        onDestroy();
         channel.setMethodCallHandler(null);
     }
 }

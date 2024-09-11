@@ -5,23 +5,25 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.view.animation.LinearInterpolator;
 
+import androidx.annotation.NonNull;
+
 import org.libpag.PAGFile;
 import org.libpag.PAGPlayer;
-import org.libpag.PAGView;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import io.flutter.plugin.common.MethodChannel;
 
 
 public class FlutterPagPlayer extends PAGPlayer {
-    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     private final ValueAnimator animator = ValueAnimator.ofFloat(0.0F, 1.0F);
-    private boolean isRelease;
+    private volatile boolean isRelease;
     private long currentPlayTime = 0L;
     private double progress = 0;
     private double initProgress = 0;
@@ -29,6 +31,17 @@ public class FlutterPagPlayer extends PAGPlayer {
 
     private MethodChannel channel;
     private long textureId;
+
+    private static final ExecutorService sTaskExecutor = new ThreadPoolExecutor(0, 1, 30L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<Runnable>(), new ThreadFactory() {
+
+        @Override
+        public Thread newThread(@NonNull Runnable r) {
+            Thread thread = new Thread(r, "FlutterPagFlushThread");
+            thread.setPriority(Thread.MIN_PRIORITY);
+            return thread;
+        }
+    });
 
     public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
         setComposition(file);
@@ -56,12 +69,7 @@ public class FlutterPagPlayer extends PAGPlayer {
         this.currentPlayTime = (long) (progress * (double) this.animator.getDuration());
         this.animator.setCurrentPlayTime(currentPlayTime);
         setProgress(progress);
-        executorService.execute(new Runnable() {
-            @Override
-            public void run() {
-                flush();
-            }
-        });
+        flushAsync();
     }
 
     public void start() {
@@ -89,6 +97,18 @@ public class FlutterPagPlayer extends PAGPlayer {
         animator.end();
     }
 
+    public void flushAsync() {
+        if (isRelease) {
+            return;
+        }
+        sTaskExecutor.submit(new Runnable() {
+            @Override
+            public void run() {
+                flush();
+            }
+        });
+    }
+
     @Override
     public boolean flush() {
         if (isRelease) {
@@ -105,12 +125,7 @@ public class FlutterPagPlayer extends PAGPlayer {
             progress = (double) (Float) animation.getAnimatedValue();
             currentPlayTime = (long) (progress * (double) animator.getDuration());
             setProgress(progress);
-            executorService.execute(new Runnable() {
-                @Override
-                public void run() {
-                    flush();
-                }
-            });
+            flushAsync();
         }
     };
 
