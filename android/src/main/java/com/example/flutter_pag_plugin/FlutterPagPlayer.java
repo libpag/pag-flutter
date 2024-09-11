@@ -11,11 +11,14 @@ import org.libpag.PAGView;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import io.flutter.plugin.common.MethodChannel;
 
 
 public class FlutterPagPlayer extends PAGPlayer {
+    private final ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     private final ValueAnimator animator = ValueAnimator.ofFloat(0.0F, 1.0F);
     private boolean isRelease;
@@ -53,7 +56,12 @@ public class FlutterPagPlayer extends PAGPlayer {
         this.currentPlayTime = (long) (progress * (double) this.animator.getDuration());
         this.animator.setCurrentPlayTime(currentPlayTime);
         setProgress(progress);
-        flush();
+        executorService.execute(new Runnable() {
+            @Override
+            public void run() {
+                flush();
+            }
+        });
     }
 
     public void start() {
@@ -97,7 +105,12 @@ public class FlutterPagPlayer extends PAGPlayer {
             progress = (double) (Float) animation.getAnimatedValue();
             currentPlayTime = (long) (progress * (double) animator.getDuration());
             setProgress(progress);
-            flush();
+            executorService.execute(new Runnable() {
+                @Override
+                public void run() {
+                    flush();
+                }
+            });
         }
     };
 
