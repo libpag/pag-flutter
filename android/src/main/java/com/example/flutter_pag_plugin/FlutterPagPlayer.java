@@ -1,4 +1,4 @@
-package com.example.flutter_pag_plugin;
+package android.src.main.java.com.example.flutter_pag_plugin;
 
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
@@ -31,6 +31,7 @@ public class FlutterPagPlayer extends PAGPlayer {
 
     private MethodChannel channel;
     private long textureId;
+    private boolean hasInited = false;
 
     private static final ExecutorService sTaskExecutor = new ThreadPoolExecutor(0, 1, 30L, TimeUnit.SECONDS,
             new LinkedBlockingQueue<Runnable>(), new ThreadFactory() {
@@ -45,6 +46,7 @@ public class FlutterPagPlayer extends PAGPlayer {
 
     public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
         setComposition(file);
+        hasInited = true;
         this.channel = channel;
         this.textureId = textureId;
         progress = initProgress;
@@ -87,14 +89,20 @@ public class FlutterPagPlayer extends PAGPlayer {
 
     @Override
     public void release() {
-        super.release();
-        animator.removeUpdateListener(animatorUpdateListener);
-        animator.removeListener(animatorListenerAdapter);
-        if (releaseListener != null) {
-            releaseListener.onRelease();
+        if (hasInited) {
+            super.release();
         }
-        isRelease = true;
-        animator.end();
+        try {
+            animator.removeUpdateListener(animatorUpdateListener);
+            animator.removeListener(animatorListenerAdapter);
+            if (releaseListener != null) {
+                releaseListener.onRelease();
+            }
+            isRelease = true;
+            animator.end();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     public void flushAsync() {
