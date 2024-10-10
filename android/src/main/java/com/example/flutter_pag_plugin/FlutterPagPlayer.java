@@ -85,9 +85,7 @@ public class FlutterPagPlayer extends PAGPlayer {
         animator.pause();
     }
 
-    @Override
-    public void release() {
-        super.release();
+    public void releasePlayer() {
         animator.removeUpdateListener(animatorUpdateListener);
         animator.removeListener(animatorListenerAdapter);
         if (releaseListener != null) {
@@ -95,6 +93,7 @@ public class FlutterPagPlayer extends PAGPlayer {
         }
         isRelease = true;
         animator.end();
+        getSurface().release();
     }
 
     public void flushAsync() {

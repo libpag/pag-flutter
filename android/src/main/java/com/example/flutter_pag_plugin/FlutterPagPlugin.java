@@ -235,7 +235,6 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             public void onRelease() {
                 entry.release();
                 surface.release();
-                pagSurface.release();
             }
         });
 
@@ -289,7 +288,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         FlutterPagPlayer flutterPagPlayer = layerMap.remove(getTextureId(call));
         if (flutterPagPlayer != null) {
             flutterPagPlayer.stop();
-            flutterPagPlayer.release();
+            flutterPagPlayer.releasePlayer();
         }
 
         TextureRegistry.SurfaceTextureEntry entry = entryMap.remove(getTextureId(call));
@@ -328,7 +327,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     //插件销毁
     public void onDestroy() {
         for (FlutterPagPlayer pagPlayer : layerMap.values()) {
-            pagPlayer.release();
+            pagPlayer.releasePlayer();
         }
         for (TextureRegistry.SurfaceTextureEntry entry : entryMap.values()) {
             entry.release();
