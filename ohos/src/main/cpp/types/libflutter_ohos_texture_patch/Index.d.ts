@@ -1,0 +1,1 @@
+export const setTextureBufferSize: (surfaceId: bigint, width: number, height: number) => void;

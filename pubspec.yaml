@@ -31,6 +31,9 @@ flutter:
         pluginClass: FlutterPagPlugin
       ios:
         pluginClass: FlutterPagPlugin
+      ohos:
+        package: com.tencent.flutter_pag_plugin
+        pluginClass: FlutterPagPlugin  
 
   # To add assets to your plugin package, add an assets section, like this:
   # assets:
