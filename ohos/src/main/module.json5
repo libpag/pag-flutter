@@ -1,0 +1,10 @@
+{
+  "module": {
+    "name": "pag",
+    "type": "har",
+    "deviceTypes": [
+      "default",
+      "tablet"
+    ]
+  }
+}
