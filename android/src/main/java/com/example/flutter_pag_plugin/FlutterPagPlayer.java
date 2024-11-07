@@ -57,7 +57,11 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     public void start() {
-        animator.start();
+        if (animator.isStarted() && animator.isRunning()) {
+            animator.resume();
+        } else {
+            animator.start();
+        }
     }
 
     public void stop() {
