@@ -14,6 +14,7 @@ import org.libpag.PAGSurface;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
@@ -47,6 +48,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
     public HashMap<String, FlutterPagPlayer> layerMap = new HashMap<String, FlutterPagPlayer>();
     public HashMap<String, TextureRegistry.SurfaceTextureEntry> entryMap = new HashMap<String, TextureRegistry.SurfaceTextureEntry>();
+    public LinkedList<String> freeEntryPool = new LinkedList<>();
 
     // 原生接口
     final static String _nativeInit = "initPag";
@@ -81,6 +83,9 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     final static String _eventRepeat = "onAnimationRepeat";
     final static String _eventUpdate = "onAnimationUpdate";
 
+    private boolean useCache = true;
+    private int maxCacheSize = 50;
+    private int maxFreePoolSize = 8;
 
     public FlutterPagPlugin() {
     }
@@ -182,7 +187,6 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 result.error("-1100", "asset资源加载错误", null);
                 return;
             }
-
             PAGFile composition = PAGFile.Load(context.getAssets(), assetKey);
             initPagPlayerAndCallback(composition, call, result);
         } else if (url != null) {
@@ -218,30 +222,38 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         final int repeatCount = call.argument(_argumentRepeatCount);
         final double initProgress = call.argument(_argumentInitProgress);
         final boolean autoPlay = call.argument(_argumentAutoPlay);
+        final FlutterPagPlayer pagPlayer;
+        String currentId = "";
+        if (freeEntryPool.isEmpty() || !useCache) {
+            pagPlayer = new FlutterPagPlayer();
+            final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
+            currentId = String.valueOf(entry.id());
+            entryMap.put(String.valueOf(entry.id()), entry);
+            pagPlayer.init(composition, repeatCount, initProgress, channel, entry.id());
+            SurfaceTexture surfaceTexture = entry.surfaceTexture();
+            surfaceTexture.setDefaultBufferSize(composition.width(), composition.height());
 
-        final FlutterPagPlayer pagPlayer = new FlutterPagPlayer();
-        final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
-        entryMap.put(String.valueOf(entry.id()), entry);
+            final Surface surface = new Surface(surfaceTexture);
+            final PAGSurface pagSurface = PAGSurface.FromSurface(surface);
+            pagPlayer.setSurface(pagSurface);
+            pagPlayer.setReleaseListener(new FlutterPagPlayer.ReleaseListener() {
+                @Override
+                public void onRelease() {
+                    entry.release();
+                    surface.release();
+                    pagSurface.release();
+                }
+            });
+            layerMap.put(String.valueOf(entry.id()), pagPlayer);
+        } else {
+            currentId = freeEntryPool.removeFirst();
+            pagPlayer = layerMap.get(currentId);
+            final TextureRegistry.SurfaceTextureEntry entry = entryMap.get(currentId);
+            pagPlayer.init(composition, repeatCount, initProgress, channel, entry.id());
+        }
 
-        pagPlayer.init(composition, repeatCount, initProgress, channel, entry.id());
-        SurfaceTexture surfaceTexture = entry.surfaceTexture();
-        surfaceTexture.setDefaultBufferSize(composition.width(), composition.height());
-
-        final Surface surface = new Surface(surfaceTexture);
-        final PAGSurface pagSurface = PAGSurface.FromSurface(surface);
-        pagPlayer.setSurface(pagSurface);
-        pagPlayer.setReleaseListener(new FlutterPagPlayer.ReleaseListener() {
-            @Override
-            public void onRelease() {
-                entry.release();
-                surface.release();
-                pagSurface.release();
-            }
-        });
-
-        layerMap.put(String.valueOf(entry.id()), pagPlayer);
         final HashMap<String, Object> callback = new HashMap<String, Object>();
-        callback.put(_argumentTextureId, entry.id());
+        callback.put(_argumentTextureId, Long.parseLong(currentId));
         callback.put(_argumentWidth, (double) composition.width());
         callback.put(_argumentHeight, (double) composition.height());
         handler.post(new Runnable() {
@@ -286,22 +298,31 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     void release(MethodCall call) {
-        FlutterPagPlayer flutterPagPlayer = layerMap.remove(getTextureId(call));
-        if (flutterPagPlayer != null) {
-            flutterPagPlayer.stop();
-            flutterPagPlayer.release();
-        }
+        if (useCache && layerMap.size() < maxCacheSize && freeEntryPool.size() < maxFreePoolSize) {
+            FlutterPagPlayer flutterPagPlayer = layerMap.get(getTextureId(call));
+            if (flutterPagPlayer != null) {
+                flutterPagPlayer.setComposition(null);
+            }
+            int id = call.argument(_argumentTextureId);
+            if (id >= 0) freeEntryPool.add(id + "");
+        } else {
+            FlutterPagPlayer flutterPagPlayer = layerMap.remove(getTextureId(call));
+            if (flutterPagPlayer != null) {
+                flutterPagPlayer.stop();
+                flutterPagPlayer.release();
+            }
 
-        TextureRegistry.SurfaceTextureEntry entry = entryMap.remove(getTextureId(call));
-        if (entry != null) {
-            entry.release();
+            TextureRegistry.SurfaceTextureEntry entry = entryMap.remove(getTextureId(call));
+            if (entry != null) {
+                entry.release();
+            }
         }
     }
 
     List<String> getLayersUnderPoint(MethodCall call) {
         FlutterPagPlayer flutterPagPlayer = getFlutterPagPlayer(call);
 
-        List<String> layerNames = new ArrayList();
+        List<String> layerNames = new ArrayList<>();
         PAGLayer[] layers = null;
         if (flutterPagPlayer != null) {
             layers = flutterPagPlayer.getLayersUnderPoint(
