@@ -241,7 +241,6 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 public void onRelease() {
                     entry.release();
                     surface.release();
-                    pagSurface.release();
                 }
             });
             layerMap.put(String.valueOf(entry.id()), pagPlayer);
@@ -301,7 +300,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         if (useCache && layerMap.size() < maxCacheSize && freeEntryPool.size() < maxFreePoolSize) {
             FlutterPagPlayer flutterPagPlayer = layerMap.get(getTextureId(call));
             if (flutterPagPlayer != null) {
-                flutterPagPlayer.setComposition(null);
+                flutterPagPlayer.clear();
             }
             int id = call.argument(_argumentTextureId);
             if (id >= 0) freeEntryPool.add(id + "");

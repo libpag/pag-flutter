@@ -7,6 +7,7 @@ import android.view.animation.LinearInterpolator;
 
 import org.libpag.PAGFile;
 import org.libpag.PAGPlayer;
+import org.libpag.PAGSurface;
 import org.libpag.PAGView;
 
 import java.util.ArrayList;
@@ -23,6 +24,7 @@ public class FlutterPagPlayer extends PAGPlayer {
     private double progress = 0;
     private double initProgress = 0;
     private ReleaseListener releaseListener;
+    private PAGSurface pagSurface;
 
     private MethodChannel channel;
     private long textureId;
@@ -65,6 +67,17 @@ public class FlutterPagPlayer extends PAGPlayer {
         setProgressValue(initProgress);
     }
 
+    @Override
+    public void setSurface(PAGSurface pagSurface) {
+        super.setSurface(pagSurface);
+        this.pagSurface = pagSurface;
+    }
+
+    public void clear() {
+        setComposition(null);
+        if (pagSurface != null) pagSurface.freeCache();
+    }
+
     public void pause() {
         animator.pause();
     }
@@ -74,6 +87,7 @@ public class FlutterPagPlayer extends PAGPlayer {
         super.release();
         animator.removeUpdateListener(animatorUpdateListener);
         animator.removeListener(animatorListenerAdapter);
+        pagSurface.release();
         if (releaseListener != null) {
             releaseListener.onRelease();
         }
