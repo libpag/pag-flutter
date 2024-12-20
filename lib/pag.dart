@@ -242,13 +242,17 @@ class PAGViewState extends State<PAGView> {
   @override
   Widget build(BuildContext context) {
     if (_hasLoadTexture) {
-      return Container(
+      return SizedBox(
         width: widget.width ?? (rawWidth / 2),
         height: widget.height ?? (rawHeight / 2),
         child: Texture(textureId: _textureId),
       );
     } else {
-      return widget.defaultBuilder?.call(context) ?? Container();
+      //todo: 未加载完成且未指定宽高时大小为0，有风险
+      return widget.defaultBuilder?.call(context) ?? SizedBox(
+        width: widget.width ?? (rawWidth / 2),
+        height: widget.height ?? (rawHeight / 2),
+      );
     }
   }
 
