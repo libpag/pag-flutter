@@ -20,7 +20,65 @@ class MyApp extends StatelessWidget {
 
 class MyHome extends StatefulWidget {
   @override
-  _MyHomeState createState() => _MyHomeState();
+  _MyTestHomeState createState() => _MyTestHomeState();
+}
+
+class _MyTestHomeState extends State<MyHome> {
+  GlobalKey<PAGViewState> _fansDanceKey = GlobalKey<PAGViewState>(debugLabel: _assetFans);
+  static const String _assetFans = 'data/fans.pag';
+  bool visible = false;
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        TextButton(
+          child: Container(
+            width: 100,
+            height: 50,
+            alignment: Alignment.center,
+            color: Color.fromARGB(255, 100, 255, 100),
+            child: Text(
+                'Test'
+            ),
+          ),
+          onPressed: (){
+            setState(() {
+              visible = !visible;
+            });
+          },
+
+        ),
+        Expanded(
+            child: Visibility(
+              visible: visible,
+              child: ListView.builder(
+                  itemCount: 300,
+                  // cacheExtent: 3000.0,
+                  itemBuilder: (context, index) {
+                    return Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        PAGView.asset(
+                          'data/${index%20}.pag',
+                          width: (index % 7) * 20 + 10,
+                          height: (index % 7) * 20 + 10,
+                          // 'data/large.pag',
+                          repeatCount: PAGView.REPEAT_COUNT_LOOP,
+                          initProgress: 0.25,
+                          autoPlay: true,
+                          key: ValueKey(index),
+                        ),
+                      ],
+                    );
+                  }
+              ),
+            )
+        ),
+      ],
+    );
+  }
+
 }
 
 class _MyHomeState extends State<MyHome> {
