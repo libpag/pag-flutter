@@ -11,6 +11,7 @@ public class WorkThreadExecutor {
     private static volatile WorkThreadExecutor instance;
     private final ExecutorService executor;
     private final ExecutorService singleThreadExecutor;
+    private static boolean multiThread = true;
     private WorkThreadExecutor() {
         executor = Executors.newCachedThreadPool();
         singleThreadExecutor = Executors.newSingleThreadExecutor();
@@ -28,11 +29,19 @@ public class WorkThreadExecutor {
     }
 
     public void post(Runnable task) {
-        executor.execute(task);
+        if (multiThread) {
+            executor.execute(task);
+        } else {
+            task.run();
+        }
     }
 
     public void postInCertainThread(Runnable task) {
-        singleThreadExecutor.execute(task);
+        if (multiThread) {
+            executor.execute(task);
+        } else {
+            task.run();
+        }
     }
 
 }

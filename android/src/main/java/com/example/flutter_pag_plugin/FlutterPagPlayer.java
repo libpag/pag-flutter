@@ -83,7 +83,9 @@ public class FlutterPagPlayer extends PAGPlayer {
         animator.cancel();
         WorkThreadExecutor.getInstance().post(() -> {
             setComposition(null);
-            if (pagSurface != null) pagSurface.freeCache();
+            synchronized (this) {
+                if (pagSurface != null) pagSurface.freeCache();
+            }
         });
     }
 
@@ -98,7 +100,9 @@ public class FlutterPagPlayer extends PAGPlayer {
         animator.removeListener(animatorListenerAdapter);
 
         WorkThreadExecutor.getInstance().post(() -> {
-            pagSurface.release();
+            synchronized (this) {
+                if (pagSurface != null) pagSurface.release();
+            }
         });
         if (releaseListener != null) {
             releaseListener.onRelease();
@@ -111,7 +115,14 @@ public class FlutterPagPlayer extends PAGPlayer {
         if (isRelease) {
             return false;
         }
-        return super.flush();
+        WorkThreadExecutor.getInstance().post(() -> {
+            synchronized (this) {
+                FlutterPagPlayer.super.flush();
+            }
+        });
+        return true;
+
+//        return super.flush();
     }
 
     // 更新PAG渲染
