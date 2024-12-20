@@ -167,8 +167,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         if (bytes != null) {
             initPagPlayerAndCallback(PAGFile.Load(bytes), call, result);
         } else if (assetName != null) {
-            String assetKey = "";
-
+            String assetKey;
             if (registrar != null) {
                 if (flutterPackage == null || flutterPackage.isEmpty()) {
                     assetKey = registrar.lookupKeyForAsset(assetName);
@@ -181,14 +180,18 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 } else {
                     assetKey = flutterAssets.getAssetFilePathByName(assetName, flutterPackage);
                 }
+            } else {
+                assetKey = "";
             }
 
             if (assetKey == null) {
                 result.error("-1100", "asset资源加载错误", null);
                 return;
             }
-            PAGFile composition = PAGFile.Load(context.getAssets(), assetKey);
-            initPagPlayerAndCallback(composition, call, result);
+            WorkThreadExecutor.getInstance().post(() -> {
+                PAGFile composition = PAGFile.Load(context.getAssets(), assetKey);
+                handler.post(() -> initPagPlayerAndCallback(composition, call, result));
+            });
         } else if (url != null) {
             DataLoadHelper.INSTANCE.loadPag(url, new Function1<byte[], Unit>() {
                 @Override
@@ -223,7 +226,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         final double initProgress = call.argument(_argumentInitProgress);
         final boolean autoPlay = call.argument(_argumentAutoPlay);
         final FlutterPagPlayer pagPlayer;
-        String currentId = "";
+        final String currentId;
         if (freeEntryPool.isEmpty() || !useCache) {
             pagPlayer = new FlutterPagPlayer();
             final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
@@ -247,23 +250,29 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         } else {
             currentId = freeEntryPool.removeFirst();
             pagPlayer = layerMap.get(currentId);
-            final TextureRegistry.SurfaceTextureEntry entry = entryMap.get(currentId);
-            pagPlayer.init(composition, repeatCount, initProgress, channel, entry.id());
         }
 
-        final HashMap<String, Object> callback = new HashMap<String, Object>();
-        callback.put(_argumentTextureId, Long.parseLong(currentId));
-        callback.put(_argumentWidth, (double) composition.width());
-        callback.put(_argumentHeight, (double) composition.height());
-        handler.post(new Runnable() {
-            @Override
-            public void run() {
-                pagPlayer.flush();
-                if (autoPlay) {
-                    pagPlayer.start();
+        if (pagPlayer == null) {
+            result.error("-1101", "id异常，未命中缓存！", null);
+            return;
+        }
+
+        WorkThreadExecutor.getInstance().post(() -> {
+            pagPlayer.init(composition, repeatCount, initProgress, channel, Long.parseLong(currentId));
+            final HashMap<String, Object> callback = new HashMap<String, Object>();
+            callback.put(_argumentTextureId, Long.parseLong(currentId));
+            callback.put(_argumentWidth, (double) composition.width());
+            callback.put(_argumentHeight, (double) composition.height());
+            handler.post(new Runnable() {
+                @Override
+                public void run() {
+                    pagPlayer.flush();
+                    if (autoPlay) {
+                        pagPlayer.start();
+                    }
+                    result.success(callback);
                 }
-                result.success(callback);
-            }
+            });
         });
     }
 

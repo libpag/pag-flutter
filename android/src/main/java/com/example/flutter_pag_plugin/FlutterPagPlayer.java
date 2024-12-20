@@ -3,6 +3,7 @@ package com.example.flutter_pag_plugin;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
+import android.util.Log;
 import android.view.animation.LinearInterpolator;
 
 import org.libpag.PAGFile;
@@ -29,6 +30,14 @@ public class FlutterPagPlayer extends PAGPlayer {
     private MethodChannel channel;
     private long textureId;
 
+
+    public FlutterPagPlayer() {
+        super();
+        animator.setInterpolator(new LinearInterpolator());
+        animator.addUpdateListener(animatorUpdateListener);
+        animator.addListener(animatorListenerAdapter);
+    }
+
     public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
         setComposition(file);
         this.channel = channel;
@@ -40,9 +49,6 @@ public class FlutterPagPlayer extends PAGPlayer {
 
     private void initAnimator(int repeatCount) {
         animator.setDuration(duration() / 1000L);
-        animator.setInterpolator(new LinearInterpolator());
-        animator.addUpdateListener(animatorUpdateListener);
-        animator.addListener(animatorListenerAdapter);
         if (repeatCount < 0) {
             repeatCount = 0;
         }
@@ -74,8 +80,11 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     public void clear() {
-        setComposition(null);
-        if (pagSurface != null) pagSurface.freeCache();
+        animator.cancel();
+        WorkThreadExecutor.getInstance().post(() -> {
+            setComposition(null);
+            if (pagSurface != null) pagSurface.freeCache();
+        });
     }
 
     public void pause() {
@@ -87,7 +96,10 @@ public class FlutterPagPlayer extends PAGPlayer {
         super.release();
         animator.removeUpdateListener(animatorUpdateListener);
         animator.removeListener(animatorListenerAdapter);
-        pagSurface.release();
+
+        WorkThreadExecutor.getInstance().post(() -> {
+            pagSurface.release();
+        });
         if (releaseListener != null) {
             releaseListener.onRelease();
         }
