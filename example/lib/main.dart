@@ -1,6 +1,4 @@
-import 'dart:typed_data';
 
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pag/pag.dart';
@@ -12,6 +10,10 @@ void main() {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    /// use codes below to config cache / multi-thread settings
+    // PAG.enableCache(false);
+    // PAG.enableMultiThread(false);
+    // PAG.setCacheSize(4);
     return MaterialApp(
       home: MyHome(),
     );
@@ -24,8 +26,6 @@ class MyHome extends StatefulWidget {
 }
 
 class _MyTestHomeState extends State<MyHome> {
-  GlobalKey<PAGViewState> _fansDanceKey = GlobalKey<PAGViewState>(debugLabel: _assetFans);
-  static const String _assetFans = 'data/fans.pag';
   bool visible = false;
   @override
   Widget build(BuildContext context) {

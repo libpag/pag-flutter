@@ -58,6 +58,10 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     final static String _nativePause = "pause";
     final static String _nativeSetProgress = "setProgress";
     final static String _nativeGetPointLayer = "getLayersUnderPoint";
+    final static String _nativeEnableCache = "enableCache";
+    final static String _nativeSetCacheSize = "setCacheSize";
+    final static String _nativeEnableMultiThread = "enableMultiThread";
+
 
     // 参数
     final static String _argumentTextureId = "textureId";
@@ -74,6 +78,9 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     final static String _argumentPointY = "y";
     final static String _argumentProgress = "progress";
     final static String _argumentEvent = "PAGEvent";
+    final static String _argumentCacheEnabled = "cacheEnabled";
+    final static String _argumentCacheSize = "cacheSize";
+    final static String _argumentMultiThreadEnabled = "multiThreadEnabled";
 
     // 回调
     final static String _playCallback = "PAGCallback";
@@ -152,11 +159,36 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             case _nativeGetPointLayer:
                 result.success(getLayersUnderPoint(call));
                 break;
+            case _nativeEnableCache:
+                enableCache(call);
+                result.success("");
+                break;
+            case _nativeSetCacheSize:
+                setCacheSize(call);
+                result.success("");
+                break;
+            case _nativeEnableMultiThread:
+                enableMultiThread(call);
+                result.success("");
+                break;
             default:
                 result.notImplemented();
                 break;
         }
     }
+
+    private void enableCache(final MethodCall call) {
+        useCache = call.argument(_argumentCacheEnabled);
+    }
+
+    private void setCacheSize(final MethodCall call) {
+        maxFreePoolSize = call.argument(_argumentCacheSize);
+    }
+
+    private void enableMultiThread(final MethodCall call) {
+        WorkThreadExecutor.getInstance().enableMultiThread(call.argument(_argumentMultiThreadEnabled));
+    }
+
 
     private void initPag(final MethodCall call, final Result result) {
         String assetName = call.argument(_argumentAssetName);

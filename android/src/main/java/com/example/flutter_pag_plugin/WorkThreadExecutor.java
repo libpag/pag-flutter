@@ -28,6 +28,10 @@ public class WorkThreadExecutor {
         return instance;
     }
 
+    public void enableMultiThread(boolean enabled) {
+        multiThread = enabled;
+    }
+
     public void post(Runnable task) {
         if (multiThread) {
             executor.execute(task);

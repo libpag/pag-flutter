@@ -3,6 +3,20 @@ import 'package:flutter/services.dart';
 
 typedef PAGCallback = void Function();
 
+class PAG {
+  static void enableCache(bool enable) {
+    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableCache, {PAGViewState._argumentCacheEnabled: enable});
+  }
+
+  static void enableMultiThread(bool enable) {
+    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableMultiThread, {PAGViewState._argumentMultiThreadEnabled: enable});
+  }
+
+  static void setCacheSize(int size) {
+    PAGViewState._channel.invokeMethod(PAGViewState._nativeSetCacheSize, {PAGViewState._argumentCacheSize: size});
+  }
+}
+
 class PAGView extends StatefulWidget {
   double? width;
   double? height;
@@ -118,6 +132,9 @@ class PAGViewState extends State<PAGView> {
   static const String _nativePause = 'pause';
   static const String _nativeSetProgress = 'setProgress';
   static const String _nativeGetPointLayer = 'getLayersUnderPoint';
+  static const String _nativeEnableCache = "enableCache";
+  static const String _nativeSetCacheSize = "setCacheSize";
+  static const String _nativeEnableMultiThread = "enableMultiThread";
 
   // 参数
   static const String _argumentTextureId = 'textureId';
@@ -134,6 +151,9 @@ class PAGViewState extends State<PAGView> {
   static const String _argumentPointY = 'y';
   static const String _argumentProgress = 'progress';
   static const String _argumentEvent = 'PAGEvent';
+  static const String _argumentCacheEnabled = "cacheEnabled";
+  static const String _argumentCacheSize = "cacheSize";
+  static const String _argumentMultiThreadEnabled = "multiThreadEnabled";
 
   // 监听该函数
   static const String _playCallback = 'PAGCallback';
