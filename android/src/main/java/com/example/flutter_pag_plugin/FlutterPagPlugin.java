@@ -91,7 +91,6 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     final static String _eventUpdate = "onAnimationUpdate";
 
     private boolean useCache = true;
-    private int maxCacheSize = 50;
     private int maxFreePoolSize = 8;
 
     public FlutterPagPlugin() {
@@ -330,7 +329,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     }
 
     void release(MethodCall call) {
-        if (useCache && layerMap.size() < maxCacheSize && freeEntryPool.size() < maxFreePoolSize) {
+        if (useCache && freeEntryPool.size() < maxFreePoolSize) {
             FlutterPagPlayer flutterPagPlayer = layerMap.get(getTextureId(call));
             if (flutterPagPlayer != null) {
                 flutterPagPlayer.clear();
