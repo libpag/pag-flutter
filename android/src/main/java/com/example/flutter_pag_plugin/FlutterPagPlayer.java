@@ -3,15 +3,12 @@ package com.example.flutter_pag_plugin;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
-import android.util.Log;
+import android.graphics.SurfaceTexture;
 import android.view.animation.LinearInterpolator;
 
 import org.libpag.PAGFile;
 import org.libpag.PAGPlayer;
 import org.libpag.PAGSurface;
-import org.libpag.PAGView;
-
-import java.util.ArrayList;
 import java.util.HashMap;
 
 import io.flutter.plugin.common.MethodChannel;
@@ -25,7 +22,7 @@ public class FlutterPagPlayer extends PAGPlayer {
     private double progress = 0;
     private double initProgress = 0;
     private ReleaseListener releaseListener;
-    private PAGSurface pagSurface;
+    private SurfaceTexture surfaceTexture;
 
     private MethodChannel channel;
     private long textureId;
@@ -39,12 +36,18 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
-        setComposition(file);
+        synchronized (this) {
+            setComposition(file);
+        }
         this.channel = channel;
         this.textureId = textureId;
         progress = initProgress;
         this.initProgress = initProgress;
         initAnimator(repeatCount);
+    }
+
+    private boolean valid() {
+        return getSurface() != null && surfaceTexture != null;
     }
 
     private void initAnimator(int repeatCount) {
@@ -76,15 +79,26 @@ public class FlutterPagPlayer extends PAGPlayer {
     @Override
     public void setSurface(PAGSurface pagSurface) {
         super.setSurface(pagSurface);
-        this.pagSurface = pagSurface;
+    }
+
+    public void setSurfaceTexture(SurfaceTexture surfaceTexture) {
+        this.surfaceTexture = surfaceTexture;
+    }
+
+    public void updateBufferSize(int width, int height) {
+        synchronized (this) {
+            surfaceTexture.setDefaultBufferSize(width, height);
+            getSurface().updateSize();
+            getSurface().clearAll();
+        }
     }
 
     public void clear() {
         animator.cancel();
         WorkThreadExecutor.getInstance().post(() -> {
-            setComposition(null);
             synchronized (this) {
-                if (pagSurface != null) pagSurface.freeCache();
+                setComposition(null);
+                if (valid()) getSurface().freeCache();
             }
         });
     }
@@ -96,16 +110,19 @@ public class FlutterPagPlayer extends PAGPlayer {
     @Override
     public void release() {
         super.release();
-        animator.removeUpdateListener(animatorUpdateListener);
-        animator.removeListener(animatorListenerAdapter);
-
+        animator.cancel();
+        animator.removeAllUpdateListeners();
+        animator.removeAllListeners();
         WorkThreadExecutor.getInstance().post(() -> {
             synchronized (this) {
-                if (pagSurface != null) pagSurface.release();
+                if (getSurface() != null) getSurface().release();
+                surfaceTexture.release();
+                surfaceTexture = null;
             }
         });
         if (releaseListener != null) {
             releaseListener.onRelease();
+            releaseListener = null;
         }
         isRelease = true;
     }

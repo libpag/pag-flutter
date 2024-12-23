@@ -232,13 +232,12 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
             currentId = String.valueOf(entry.id());
             entryMap.put(String.valueOf(entry.id()), entry);
-            pagPlayer.init(composition, repeatCount, initProgress, channel, entry.id());
             SurfaceTexture surfaceTexture = entry.surfaceTexture();
-            surfaceTexture.setDefaultBufferSize(composition.width(), composition.height());
 
             final Surface surface = new Surface(surfaceTexture);
             final PAGSurface pagSurface = PAGSurface.FromSurface(surface);
             pagPlayer.setSurface(pagSurface);
+            pagPlayer.setSurfaceTexture(surfaceTexture);
             pagPlayer.setReleaseListener(new FlutterPagPlayer.ReleaseListener() {
                 @Override
                 public void onRelease() {
@@ -250,14 +249,14 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         } else {
             currentId = freeEntryPool.removeFirst();
             pagPlayer = layerMap.get(currentId);
-        }
-
-        if (pagPlayer == null) {
-            result.error("-1101", "id异常，未命中缓存！", null);
-            return;
+            if (pagPlayer == null) {
+                result.error("-1101", "id异常，未命中缓存！", null);
+                return;
+            }
         }
 
         WorkThreadExecutor.getInstance().post(() -> {
+            pagPlayer.updateBufferSize(composition.width() , composition.height());
             pagPlayer.init(composition, repeatCount, initProgress, channel, Long.parseLong(currentId));
             final HashMap<String, Object> callback = new HashMap<String, Object>();
             callback.put(_argumentTextureId, Long.parseLong(currentId));
