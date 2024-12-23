@@ -98,7 +98,10 @@ public class FlutterPagPlayer extends PAGPlayer {
         WorkThreadExecutor.getInstance().post(() -> {
             synchronized (this) {
                 setComposition(null);
-                if (valid()) getSurface().freeCache();
+                if (valid()) {
+                    getSurface().freeCache();
+                    getSurface().clearAll();
+                }
             }
         });
     }

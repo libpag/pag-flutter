@@ -238,13 +238,6 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             final PAGSurface pagSurface = PAGSurface.FromSurface(surface);
             pagPlayer.setSurface(pagSurface);
             pagPlayer.setSurfaceTexture(surfaceTexture);
-            pagPlayer.setReleaseListener(new FlutterPagPlayer.ReleaseListener() {
-                @Override
-                public void onRelease() {
-                    entry.release();
-                    surface.release();
-                }
-            });
             layerMap.put(String.valueOf(entry.id()), pagPlayer);
         } else {
             currentId = freeEntryPool.removeFirst();
