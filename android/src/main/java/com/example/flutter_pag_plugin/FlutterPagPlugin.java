@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.Surface;
 
 import androidx.annotation.NonNull;
@@ -277,6 +278,10 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 result.error("-1101", "id异常，未命中缓存！", null);
                 return;
             }
+            if (pagPlayer.isRelease()) {
+                result.error("-1102", "PagPlayer异常！", null);
+                return;
+            }
         }
 
         WorkThreadExecutor.getInstance().post(() -> {
@@ -286,10 +291,11 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             callback.put(_argumentTextureId, Long.parseLong(currentId));
             callback.put(_argumentWidth, (double) composition.width());
             callback.put(_argumentHeight, (double) composition.height());
+            pagPlayer.flush();
+
             handler.post(new Runnable() {
                 @Override
                 public void run() {
-                    pagPlayer.flush();
                     if (autoPlay) {
                         pagPlayer.start();
                     }
@@ -331,11 +337,18 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     void release(MethodCall call) {
         if (useCache && freeEntryPool.size() < maxFreePoolSize) {
             FlutterPagPlayer flutterPagPlayer = layerMap.get(getTextureId(call));
-            if (flutterPagPlayer != null) {
-                flutterPagPlayer.clear();
-            }
             int id = call.argument(_argumentTextureId);
-            if (id >= 0) freeEntryPool.add(id + "");
+            if (flutterPagPlayer != null) {
+                flutterPagPlayer.cancel();
+                WorkThreadExecutor.getInstance().post(() -> {
+                    flutterPagPlayer.clear();
+                    if (id >= 0) {
+                        handler.post(() -> {
+                            freeEntryPool.add(id + "");
+                        });
+                    }
+                });
+            }
         } else {
             FlutterPagPlayer flutterPagPlayer = layerMap.remove(getTextureId(call));
             if (flutterPagPlayer != null) {

@@ -35,6 +35,10 @@ public class FlutterPagPlayer extends PAGPlayer {
         animator.addListener(animatorListenerAdapter);
     }
 
+    public boolean isRelease() {
+        return isRelease;
+    }
+
     public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
         synchronized (this) {
             setComposition(file);
@@ -94,16 +98,17 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     public void clear() {
-        animator.cancel();
-        WorkThreadExecutor.getInstance().post(() -> {
-            synchronized (this) {
-                setComposition(null);
-                if (valid()) {
-                    getSurface().freeCache();
-                    getSurface().clearAll();
-                }
+        synchronized (this) {
+            setComposition(null);
+            if (valid()) {
+                getSurface().freeCache();
+                getSurface().clearAll();
             }
-        });
+        }
+    }
+
+    public void cancel() {
+        animator.cancel();
     }
 
     public void pause() {
