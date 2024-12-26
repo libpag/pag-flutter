@@ -63,6 +63,8 @@ export class FlutterPagPlayer extends PAGPlayer {
     this.animator?.cancel();
     this.animator = undefined;
     this.onStartCallback = undefined;
+    this.getSurface()?.release();
+    super.release();
   }
 
   start() {
