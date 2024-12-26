@@ -13,7 +13,7 @@ class MyApp extends StatelessWidget {
     /// use codes below to config cache / multi-thread settings
     // PAG.enableCache(false);
     // PAG.enableMultiThread(false);
-    // PAG.setCacheSize(4);
+    // PAG.setCacheSize(4);   ///default size is 8
     return MaterialApp(
       home: MyHome(),
     );
@@ -22,10 +22,11 @@ class MyApp extends StatelessWidget {
 
 class MyHome extends StatefulWidget {
   @override
-  _MyTestHomeState createState() => _MyTestHomeState();
+  _MyHomeState createState() => _MyHomeState();
 }
 
-class _MyTestHomeState extends State<MyHome> {
+///PAG用于ListView，用于测试加载速度
+class _MyListHomeState extends State<MyHome> {
   bool visible = false;
   @override
   Widget build(BuildContext context) {

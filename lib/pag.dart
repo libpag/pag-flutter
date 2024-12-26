@@ -18,6 +18,7 @@ class PAG {
 }
 
 class PAGView extends StatefulWidget {
+  /// 宽高，不建议不设置
   double? width;
   double? height;
 
@@ -123,6 +124,8 @@ class PAGViewState extends State<PAGView> {
 
   double rawWidth = 0;
   double rawHeight = 0;
+
+  static const double defaultSize = 50;
 
   // 原生接口
   static const String _nativeInit = 'initPag';
@@ -268,10 +271,9 @@ class PAGViewState extends State<PAGView> {
         child: Texture(textureId: _textureId),
       );
     } else {
-      //todo: 未加载完成且未指定宽高时大小为0，有风险
       return widget.defaultBuilder?.call(context) ?? SizedBox(
-        width: widget.width ?? (rawWidth / 2),
-        height: widget.height ?? (rawHeight / 2),
+        width: widget.width ?? defaultSize,
+        height: widget.height ?? defaultSize,
       );
     }
   }
