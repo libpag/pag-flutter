@@ -9,8 +9,9 @@ type AnimationCallback = Callback<void>;
 const DefaultCallback: AnimationCallback = () => {
 };
 
+const TAG = "FlutterPagPlayer";
+
 export class FlutterPagPlayer extends PAGPlayer {
-  static TAG = "FlutterPagPlayer";
   private animator: AnimatorResult | undefined = undefined;
   private onStartCallback: AnimationCallback | undefined = undefined;
 
@@ -44,38 +45,41 @@ export class FlutterPagPlayer extends PAGPlayer {
     };
     this.onStartCallback = onStart;
     this.animator.onRepeat = () => {
-      Log.d(FlutterPagPlayer.TAG, "animator onRepeat");
+      // Log.d(TAG, "animator onRepeat");
       onRepeat();
     };
     this.animator.onCancel = () => {
-      Log.i(FlutterPagPlayer.TAG, "animator onCancel");
+      Log.i(TAG, "animator onCancel");
       onCancel();
     };
     this.animator.onFinish = () => {
-      Log.i(FlutterPagPlayer.TAG, "animator onFinish");
+      Log.i(TAG, "animator onFinish");
       onEnd();
     };
   }
 
   release() {
+    Log.i(TAG, "release");
     this.animator?.cancel();
     this.animator = undefined;
     this.onStartCallback = undefined;
+    this.getSurface()?.release();
+    super.release();
   }
 
   start() {
-    Log.i(FlutterPagPlayer.TAG, "start");
+    Log.i(TAG, "start");
     this.animator?.play();
     this.onStartCallback?.();
   }
 
   stop() {
-    Log.i(FlutterPagPlayer.TAG, "stop");
+    Log.i(TAG, "stop");
     this.animator?.cancel();
   }
 
   pause() {
-    Log.i(FlutterPagPlayer.TAG, "pause");
+    Log.i(TAG, "pause");
     this.animator?.pause();
   }
 }

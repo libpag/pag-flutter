@@ -7,7 +7,6 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@ohos/flutter_ohos": "file:./har/flutter.har",
-    "@tencent/libpag": "^4.4.9",
-    "libflutter_ohos_texture_patch.so": "file:./src/main/cpp/types/libflutter_ohos_texture_patch"
+    "@tencent/libpag": "^4.4.21",
   }
 }

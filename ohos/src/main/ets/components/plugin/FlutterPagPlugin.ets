@@ -13,8 +13,6 @@ import hilog from '@ohos.hilog';
 import { PAGFile, PAGSurface } from '@tencent/libpag'
 import { FlutterPagPlayer } from './FlutterPagPlayer';
 
-import flutter_ohos_texture_patch from 'libflutter_ohos_texture_patch.so';
-
 namespace Constants {
   // 原生接口
   export const _nativeInit = "initPag";
@@ -74,9 +72,10 @@ namespace Constants {
   export const _eventUpdate = "onAnimationUpdate";
 }
 
+const TAG = "FlutterPagPlugin";
+
 /** FlutterPagPlugin **/
 export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
-  private static TAG = "FlutterPagPlugin";
   private channel: MethodChannel | null = null;
   private flutterBinding: FlutterPluginBinding | null = null;
   private playerMap: Map<number, FlutterPagPlayer> = new Map<number, FlutterPagPlayer>();
@@ -91,7 +90,7 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
   }
 
   onAttachedToEngine(binding: FlutterPluginBinding): void {
-    Log.i(FlutterPagPlugin.TAG, "onAttachedToEngine");
+    Log.i(TAG, "onAttachedToEngine");
 
     this.flutterBinding = binding;
     this.channel = new MethodChannel(binding.getBinaryMessenger(), "flutter_pag_plugin");
@@ -99,15 +98,26 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
   }
 
   onDetachedFromEngine(binding: FlutterPluginBinding): void {
-    Log.i(FlutterPagPlugin.TAG, "onDetachedFromEngine");
+    Log.i(TAG, "onDetachedFromEngine");
 
-    if (this.channel != null) {
-      this.channel.setMethodCallHandler(null)
-    }
+    this.channel?.setMethodCallHandler(null);
+    this.channel = null;
+    this.flutterBinding = null;
+
+    this.playerMap.forEach((player, _) => {
+      player.stop();
+      player.release();
+    });
+    this.playerMap.clear();
+
+    this.entryMap.forEach((_, textureId) => {
+      this.flutterBinding?.getTextureRegistry()?.unregisterTexture(textureId)
+    });
+    this.entryMap.clear();
   }
 
   onMethodCall(call: MethodCall, result: MethodResult): void {
-    Log.i(FlutterPagPlugin.TAG, "onMethodCall => %{public}s", call.method);
+    Log.i(TAG, `onMethodCall => ${call.method}`);
 
     switch (call.method) {
       case Constants._nativeInit:
@@ -149,25 +159,25 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
     let url: string | undefined = call.argument(Constants._argumentUrl);
     let flutterPackage: string | undefined = call.argument(Constants._argumentPackage);
 
-    Log.d(FlutterPagPlugin.TAG,
+    Log.d(TAG,
       `initPag assetName: ${assetName}; bytes: ${bytes?.length}; url: ${url}; flutterPackage: ${flutterPackage}`);
 
     if (assetName != undefined) {
       let manager = this.flutterBinding!.getApplicationContext().resourceManager;
       let assetPath = this.flutterBinding?.getFlutterAssets().getAssetFilePathByName(assetName, flutterPackage ?? '');
-      Log.i(FlutterPagPlugin.TAG, `initPag LoadFromAssets assetName=${assetName}; path: ${assetPath}`);
+      Log.i(TAG, `initPag LoadFromAssets assetName=${assetName}; path: ${assetPath}`);
       let pagFile = PAGFile.LoadFromAssets(manager, assetPath!);
       this.initPagPlayer(call, result, pagFile);
     } else if (bytes != undefined) {
-      Log.i(FlutterPagPlugin.TAG, `initPag LoadFromBytes bytes ByteLength: ${bytes.byteLength};`);
+      Log.i(TAG, `initPag LoadFromBytes bytes ByteLength: ${bytes.byteLength};`);
       let pagFile = PAGFile.LoadFromBytes(bytes.buffer as ArrayBuffer);
       this.initPagPlayer(call, result, pagFile);
     } else if (url != undefined) {
-      Log.i(FlutterPagPlugin.TAG, `initPag LoadFromPathAsync url: ${url}`);
+      Log.i(TAG, `initPag LoadFromPathAsync url: ${url}`);
       PAGFile.LoadFromPathAsync(url).then((pagFile) => {
         this.initPagPlayer(call, result, pagFile);
       }).catch(() => {
-        Log.e(FlutterPagPlugin.TAG, `initPag LoadFromPathAsync error: ${url}`);
+        Log.e(TAG, `initPag LoadFromPathAsync error: ${url}`);
         result.error("500", "LoadFromPathAsync error", null);
       });
     } else {
@@ -178,7 +188,7 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
 
   private initPagPlayer(call: MethodCall, result: MethodResult, pagFile: PAGFile | null) {
     if (pagFile == null) {
-      Log.e(FlutterPagPlugin.TAG, "initPagPlayer pagFile is null...");
+      Log.e(TAG, "initPagPlayer pagFile is null...");
       result.error("400", "initPagPlayer pagFile is null", null);
       return;
     }
@@ -188,19 +198,16 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
       let textureId: number = textureRegistry!.getTextureId();
       let surfaceTextureEntry = textureRegistry!.registerTexture(textureId);
       let surfaceId: number = surfaceTextureEntry.getSurfaceId();
-      Log.i(FlutterPagPlugin.TAG, `initPagPlayer textureId:${textureId}; surfaceId: ${surfaceId}`);
+      Log.i(TAG, `initPagPlayer textureId:${textureId}; surfaceId: ${surfaceId}`);
 
       let width = pagFile?.width();
       let height = pagFile?.height();
-      Log.i(FlutterPagPlugin.TAG, `initPagPlayer pagFile width: ${width}; height: ${height}`);
+      Log.i(TAG, `initPagPlayer pagFile width: ${width}; height: ${height}`);
 
-      // TODO: Need update engine to fix it.
-      //  See this issues https://gitee.com/openharmony-sig/flutter_engine/issues/IAXKIK
-      // textureRegistry?.setTextureBufferSize(textureId, width, height);
-      flutter_ohos_texture_patch.setTextureBufferSize(BigInt(surfaceId), width, height);
+      textureRegistry?.setTextureBufferSize(textureId, width, height);
 
       let pagSurface = PAGSurface.FromSurfaceID(surfaceId);
-      Log.i(FlutterPagPlugin.TAG,
+      Log.i(TAG,
         `initPagPlayer pagSurface:${pagSurface}; width:${pagSurface?.width()}; height: ${pagSurface?.height()}`);
 
       let repeatCount: number = call.argument(Constants._argumentRepeatCount) ?? -1;
@@ -232,7 +239,7 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
       this.playerMap.set(textureId, pagPlayer);
       this.entryMap.set(textureId, surfaceTextureEntry);
 
-      // Post to next frame start to avoid crash, otherwise 【Release mode】 will crash.
+      // TODO: Post to next frame start to avoid crash, otherwise 【Release mode】 will crash.
       // See this issues https://gitee.com/openharmony-sig/flutter_engine/issues/IAYIEG
       setTimeout(() => {
         pagPlayer.prepare();
@@ -245,13 +252,13 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
         result.success(callback);
       }, 0);
     } catch (e) {
-      Log.e(FlutterPagPlugin.TAG, `initPagPlayer error: ${e}`);
+      Log.e(TAG, `initPagPlayer error: ${e}`);
       result.error("500", "initPagPlayer error", null);
     }
   }
 
   private release(call: MethodCall) {
-    Log.i(FlutterPagPlugin.TAG, "release");
+    Log.i(TAG, "release");
 
     let textureId: number = call.argument(Constants._argumentTextureId) as number;
     let pagPlayer = this.getFlutterPagPlayer(call);
@@ -267,10 +274,11 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
       // surfaceTextureEntry.release();
       this.entryMap.delete(textureId);
     }
+    this.flutterBinding?.getTextureRegistry()?.unregisterTexture(textureId);
   }
 
   private start(call: MethodCall) {
-    Log.i(FlutterPagPlugin.TAG, "start");
+    Log.i(TAG, "start");
 
     let pagPlayer = this.getFlutterPagPlayer(call);
     if (pagPlayer != null) {
@@ -279,7 +287,7 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
   }
 
   private stop(call: MethodCall) {
-    Log.i(FlutterPagPlugin.TAG, "stop");
+    Log.i(TAG, "stop");
 
     let pagPlayer = this.getFlutterPagPlayer(call);
     if (pagPlayer != null) {
@@ -288,7 +296,7 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
   }
 
   private pause(call: MethodCall) {
-    Log.i(FlutterPagPlugin.TAG, "pause");
+    Log.i(TAG, "pause");
 
     let pagPlayer = this.getFlutterPagPlayer(call);
     if (pagPlayer != null) {
@@ -297,7 +305,7 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
   }
 
   private setProgress(call: MethodCall) {
-    Log.i(FlutterPagPlugin.TAG, "setProgress");
+    Log.i(TAG, "setProgress");
 
     let pagPlayer = this.getFlutterPagPlayer(call);
     if (pagPlayer != null) {
@@ -307,7 +315,7 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
   }
 
   private getLayersUnderPoint(call: MethodCall): Array<string> {
-    Log.i(FlutterPagPlugin.TAG, "getLayersUnderPoint");
+    Log.i(TAG, "getLayersUnderPoint");
 
     let layerNames: Array<string> = new Array<string>();
     let pagPlayer = this.getFlutterPagPlayer(call);
