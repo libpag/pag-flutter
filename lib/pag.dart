@@ -3,52 +3,52 @@ import 'package:flutter/services.dart';
 
 class PAGView extends StatefulWidget {
   /// 宽高，不建议不设置
-  double? width;
-  double? height;
+  final double? width;
+  final double? height;
 
   /// 二进制动画数据
-  Uint8List? bytesData;
+  final Uint8List? bytesData;
 
   /// 网络资源，动画链接
-  String? url;
+  final String? url;
 
   /// flutter动画资源路径
-  String? assetName;
+  final String? assetName;
 
   /// asset package
-  String? package;
+  final String? package;
 
   /// 初始化时播放进度
-  double initProgress;
+  final double initProgress;
 
   /// 初始化后自动播放
-  bool autoPlay;
+  final bool autoPlay;
 
   /// 循环次数
-  int repeatCount;
+  final int repeatCount;
 
   /// 初始化完成
-  PAGCallback? onInit;
+  final PAGCallback? onInit;
 
   /// Notifies the start of the animation.
-  PAGCallback? onAnimationStart;
+  final PAGCallback? onAnimationStart;
 
   /// Notifies the end of the animation.
-  PAGCallback? onAnimationEnd;
+  final PAGCallback? onAnimationEnd;
 
   /// Notifies the cancellation of the animation.
-  PAGCallback? onAnimationCancel;
+  final PAGCallback? onAnimationCancel;
 
   /// Notifies the repetition of the animation.
-  PAGCallback? onAnimationRepeat;
+  final PAGCallback? onAnimationRepeat;
 
   /// 加载失败时的默认控件构造器
-  Widget Function(BuildContext context)? defaultBuilder;
+  final Widget Function(BuildContext context)? defaultBuilder;
 
   static const int REPEAT_COUNT_LOOP = -1; //无限循环
   static const int REPEAT_COUNT_DEFAULT = 1; //默认仅播放一次
 
-  PAGView.network(
+  const PAGView.network(
     this.url, {
     this.width,
     this.height,
@@ -62,9 +62,12 @@ class PAGView extends StatefulWidget {
     this.onAnimationRepeat,
     this.defaultBuilder,
     Key? key,
-  }) : super(key: key);
+  })  : this.bytesData = null,
+        this.assetName = null,
+        this.package = null,
+        super(key: key);
 
-  PAGView.asset(
+  const PAGView.asset(
     this.assetName, {
     this.width,
     this.height,
@@ -79,9 +82,11 @@ class PAGView extends StatefulWidget {
     this.onAnimationRepeat,
     this.defaultBuilder,
     Key? key,
-  }) : super(key: key);
+  })  : this.bytesData = null,
+        this.url = null,
+        super(key: key);
 
-  PAGView.bytes(
+  const PAGView.bytes(
     this.bytesData, {
     this.width,
     this.height,
@@ -96,7 +101,9 @@ class PAGView extends StatefulWidget {
     this.onAnimationRepeat,
     this.defaultBuilder,
     Key? key,
-  }) : super(key: key);
+  })  : this.url = null,
+        this.assetName = null,
+        super(key: key);
 
   @override
   PAGViewState createState() => PAGViewState();
@@ -174,7 +181,8 @@ class PAGViewState extends State<PAGView> {
     double initProcess = widget.initProgress < 0 ? 0 : widget.initProgress;
 
     try {
-      dynamic result = await _channel.invokeMethod(_nativeInit, {_argumentAssetName: widget.assetName, _argumentPackage: widget.package, _argumentUrl: widget.url, _argumentBytes: widget.bytesData, _argumentRepeatCount: repeatCount, _argumentInitProgress: initProcess, _argumentAutoPlay: widget.autoPlay});
+      dynamic result =
+          await _channel.invokeMethod(_nativeInit, {_argumentAssetName: widget.assetName, _argumentPackage: widget.package, _argumentUrl: widget.url, _argumentBytes: widget.bytesData, _argumentRepeatCount: repeatCount, _argumentInitProgress: initProcess, _argumentAutoPlay: widget.autoPlay});
       if (result is Map) {
         _textureId = result[_argumentTextureId];
         rawWidth = result[_argumentWidth] ?? 0;
@@ -255,10 +263,11 @@ class PAGViewState extends State<PAGView> {
         child: Texture(textureId: _textureId),
       );
     } else {
-      return widget.defaultBuilder?.call(context) ?? SizedBox(
-        width: widget.width ?? defaultSize,
-        height: widget.height ?? defaultSize,
-      );
+      return widget.defaultBuilder?.call(context) ??
+          SizedBox(
+            width: widget.width ?? defaultSize,
+            height: widget.height ?? defaultSize,
+          );
     }
   }
 
