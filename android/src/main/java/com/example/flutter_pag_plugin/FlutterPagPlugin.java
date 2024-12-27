@@ -285,7 +285,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         }
 
         WorkThreadExecutor.getInstance().post(() -> {
-            pagPlayer.updateBufferSize(composition.width() , composition.height());
+            pagPlayer.updateBufferSize(composition.width(), composition.height());
             pagPlayer.init(composition, repeatCount, initProgress, channel, Long.parseLong(currentId));
             final HashMap<String, Object> callback = new HashMap<String, Object>();
             callback.put(_argumentTextureId, Long.parseLong(currentId));
@@ -392,6 +392,12 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
     //插件销毁
     public void onDestroy() {
+        release();
+        channel.setMethodCallHandler(null);
+    }
+
+    // 资源释放
+    public void release() {
         for (FlutterPagPlayer pagPlayer : layerMap.values()) {
             pagPlayer.release();
         }
@@ -400,11 +406,10 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         }
         layerMap.clear();
         entryMap.clear();
-        channel.setMethodCallHandler(null);
     }
 
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
-        channel.setMethodCallHandler(null);
+        onDestroy();
     }
 }
