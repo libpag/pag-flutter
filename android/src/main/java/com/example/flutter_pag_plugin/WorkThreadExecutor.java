@@ -11,7 +11,7 @@ public class WorkThreadExecutor {
     private static volatile WorkThreadExecutor instance;
     private final ExecutorService executor;
     private final ExecutorService singleThreadExecutor;
-    private static boolean multiThread = true;
+    public static boolean multiThread = true;
     private WorkThreadExecutor() {
         executor = Executors.newCachedThreadPool();
         singleThreadExecutor = Executors.newSingleThreadExecutor();

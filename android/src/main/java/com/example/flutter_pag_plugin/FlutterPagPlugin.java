@@ -49,7 +49,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
     public HashMap<String, FlutterPagPlayer> layerMap = new HashMap<String, FlutterPagPlayer>();
     public HashMap<String, TextureRegistry.SurfaceTextureEntry> entryMap = new HashMap<String, TextureRegistry.SurfaceTextureEntry>();
-    public LinkedList<String> freeEntryPool = new LinkedList<>();
+    public LinkedList<String>  freeEntryPool = new LinkedList<>();
 
     // 原生接口
     final static String _nativeInit = "initPag";
@@ -92,7 +92,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     final static String _eventUpdate = "onAnimationUpdate";
 
     private boolean useCache = true;
-    private int maxFreePoolSize = 8;
+    private int maxFreePoolSize = 10;
 
     public FlutterPagPlugin() {
     }
@@ -392,18 +392,19 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
     //插件销毁
     public void onDestroy() {
-        release();
+        releaseAll();
         channel.setMethodCallHandler(null);
     }
 
-    // 资源释放
-    public void release() {
+    // 释放全部资源
+    public void releaseAll() {
         for (FlutterPagPlayer pagPlayer : layerMap.values()) {
             pagPlayer.release();
         }
         for (TextureRegistry.SurfaceTextureEntry entry : entryMap.values()) {
             entry.release();
         }
+        freeEntryPool.clear();
         layerMap.clear();
         entryMap.clear();
     }

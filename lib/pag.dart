@@ -1,22 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-typedef PAGCallback = void Function();
-
-class PAG {
-  static void enableCache(bool enable) {
-    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableCache, {PAGViewState._argumentCacheEnabled: enable});
-  }
-
-  static void enableMultiThread(bool enable) {
-    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableMultiThread, {PAGViewState._argumentMultiThreadEnabled: enable});
-  }
-
-  static void setCacheSize(int size) {
-    PAGViewState._channel.invokeMethod(PAGViewState._nativeSetCacheSize, {PAGViewState._argumentCacheSize: size});
-  }
-}
-
 class PAGView extends StatefulWidget {
   /// 宽高，不建议不设置
   double? width;
@@ -283,5 +267,25 @@ class PAGViewState extends State<PAGView> {
     super.dispose();
     _channel.invokeMethod(_nativeRelease, {_argumentTextureId: _textureId});
     callbackHandlers.remove(_textureId);
+  }
+}
+
+typedef PAGCallback = void Function();
+
+// PAG设置
+class PAG {
+  // 是否开启缓存，默认true
+  static void enableCache(bool enable) {
+    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableCache, {PAGViewState._argumentCacheEnabled: enable});
+  }
+
+  // 是否多线程加载和释放资源，默认true
+  static void enableMultiThread(bool enable) {
+    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableMultiThread, {PAGViewState._argumentMultiThreadEnabled: enable});
+  }
+
+  // 设置缓存数量，默认10
+  static void setCacheSize(int size) {
+    PAGViewState._channel.invokeMethod(PAGViewState._nativeSetCacheSize, {PAGViewState._argumentCacheSize: size});
   }
 }

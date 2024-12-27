@@ -9,6 +9,7 @@ import android.view.animation.LinearInterpolator;
 import org.libpag.PAGFile;
 import org.libpag.PAGPlayer;
 import org.libpag.PAGSurface;
+
 import java.util.HashMap;
 
 import io.flutter.plugin.common.MethodChannel;
@@ -21,7 +22,6 @@ public class FlutterPagPlayer extends PAGPlayer {
     private long currentPlayTime = 0L;
     private double progress = 0;
     private double initProgress = 0;
-    private ReleaseListener releaseListener;
     private SurfaceTexture surfaceTexture;
 
     private MethodChannel channel;
@@ -40,9 +40,14 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
-        synchronized (this) {
+        if (WorkThreadExecutor.multiThread) {
+            synchronized (this) {
+                setComposition(file);
+            }
+        } else {
             setComposition(file);
         }
+
         this.channel = channel;
         this.textureId = textureId;
         progress = initProgress;
@@ -90,7 +95,13 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     public void updateBufferSize(int width, int height) {
-        synchronized (this) {
+        if (WorkThreadExecutor.multiThread) {
+            synchronized (this) {
+                surfaceTexture.setDefaultBufferSize(width, height);
+                getSurface().updateSize();
+                getSurface().clearAll();
+            }
+        } else {
             surfaceTexture.setDefaultBufferSize(width, height);
             getSurface().updateSize();
             getSurface().clearAll();
@@ -98,7 +109,15 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     public void clear() {
-        synchronized (this) {
+        if (WorkThreadExecutor.multiThread) {
+            synchronized (this) {
+                setComposition(null);
+                if (valid()) {
+                    getSurface().freeCache();
+                    getSurface().clearAll();
+                }
+            }
+        } else {
             setComposition(null);
             if (valid()) {
                 getSurface().freeCache();
@@ -122,16 +141,19 @@ public class FlutterPagPlayer extends PAGPlayer {
         animator.removeAllUpdateListeners();
         animator.removeAllListeners();
         WorkThreadExecutor.getInstance().post(() -> {
-            synchronized (this) {
+            if (WorkThreadExecutor.multiThread) {
+                synchronized (this) {
+                    if (getSurface() != null) getSurface().release();
+                    surfaceTexture.release();
+                    surfaceTexture = null;
+                }
+            } else {
                 if (getSurface() != null) getSurface().release();
                 surfaceTexture.release();
                 surfaceTexture = null;
             }
+
         });
-        if (releaseListener != null) {
-            releaseListener.onRelease();
-            releaseListener = null;
-        }
         isRelease = true;
     }
 
@@ -141,9 +163,14 @@ public class FlutterPagPlayer extends PAGPlayer {
             return false;
         }
         WorkThreadExecutor.getInstance().post(() -> {
-            synchronized (this) {
+            if (WorkThreadExecutor.multiThread) {
+                synchronized (this) {
+                    FlutterPagPlayer.super.flush();
+                }
+            } else {
                 FlutterPagPlayer.super.flush();
             }
+
         });
         return true;
 
@@ -161,14 +188,6 @@ public class FlutterPagPlayer extends PAGPlayer {
             flush();
         }
     };
-
-    public void setReleaseListener(ReleaseListener releaseListener) {
-        this.releaseListener = releaseListener;
-    }
-
-    public interface ReleaseListener {
-        void onRelease();
-    }
 
     // 动画状态监听
     private final AnimatorListenerAdapter animatorListenerAdapter = new AnimatorListenerAdapter() {
