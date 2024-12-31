@@ -1,6 +1,7 @@
 package com.example.flutter_pag_plugin;
 
 import android.content.Context;
+import android.graphics.Matrix;
 import android.graphics.SurfaceTexture;
 import android.os.Handler;
 import android.os.Looper;
@@ -9,8 +10,10 @@ import android.view.Surface;
 
 import androidx.annotation.NonNull;
 
+import org.libpag.PAGComposition;
 import org.libpag.PAGFile;
 import org.libpag.PAGLayer;
+import org.libpag.PAGPlayer;
 import org.libpag.PAGSurface;
 
 import java.util.ArrayList;
@@ -94,6 +97,18 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     private boolean useCache = true;
     private int maxFreePoolSize = 10;
 
+    private PAGComposition canvas;
+    private int canvasSize = 2000;
+    private int cellSize = 200;
+    private int lineCnt = canvasSize / cellSize;
+    private int totalCnt = lineCnt * lineCnt;
+    private LinkedList<Integer> availableList = new LinkedList<>();
+
+    private TextureRegistry.SurfaceTextureEntry canvasEntry;
+    private FlutterPagPlayer canvasPlayer;
+
+    private boolean canAdd = true;
+
     public FlutterPagPlugin() {
     }
 
@@ -116,6 +131,27 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         context = binding.getApplicationContext();
         textureRegistry = binding.getTextureRegistry();
         DataLoadHelper.INSTANCE.initDiskCache(context, DataLoadHelper.INSTANCE.DEFAULT_DIS_SIZE);
+
+        canvas = PAGComposition.Make(canvasSize, canvasSize);
+//        canvas = PAGFile.Load(context.getAssets(), "flutter_assets/data/6.pag");
+
+        for (int i = 0; i < totalCnt; i++) {
+            availableList.add(i);
+        }
+
+        canvasEntry = textureRegistry.createSurfaceTexture();
+        SurfaceTexture surfaceTexture = canvasEntry.surfaceTexture();
+
+        final Surface surface = new Surface(surfaceTexture);
+        final PAGSurface pagSurface = PAGSurface.FromSurface(surface);
+        canvasPlayer = new FlutterPagPlayer();
+        canvasPlayer.setSurface(pagSurface);
+        canvasPlayer.setSurfaceTexture(surfaceTexture);
+        canvasPlayer.updateBufferSize(canvasSize, canvasSize);
+        canvasPlayer.init(canvas, -1, 0.25, channel, canvasEntry.id());
+        canvasPlayer.flush();
+
+        canvasPlayer.start();
     }
 
     public static void registerWith(io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
@@ -153,7 +189,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 result.success("");
                 break;
             case _nativeRelease:
-                release(call);
+//                release(call);
                 result.success("");
                 break;
             case _nativeGetPointLayer:
@@ -197,7 +233,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         String flutterPackage = call.argument(_argumentPackage);
 
         if (bytes != null) {
-            initPagPlayerAndCallback(PAGFile.Load(bytes), call, result);
+            initPagPlayerAndCallbackNew(PAGFile.Load(bytes), call, result);
         } else if (assetName != null) {
             String assetKey;
             if (registrar != null) {
@@ -220,10 +256,12 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 result.error("-1100", "asset资源加载错误", null);
                 return;
             }
-            WorkThreadExecutor.getInstance().post(() -> {
-                PAGFile composition = PAGFile.Load(context.getAssets(), assetKey);
-                handler.post(() -> initPagPlayerAndCallback(composition, call, result));
-            });
+            PAGFile composition = PAGFile.Load(context.getAssets(), assetKey);
+            initPagPlayerAndCallbackNew(composition, call, result);
+//            WorkThreadExecutor.getInstance().post(() -> {
+//                PAGFile composition = PAGFile.Load(context.getAssets(), assetKey);
+//                handler.post(() -> initPagPlayerAndCallbackNew(composition, call, result));
+//            });
         } else if (url != null) {
             DataLoadHelper.INSTANCE.loadPag(url, new Function1<byte[], Unit>() {
                 @Override
@@ -236,7 +274,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                                 return;
                             }
 
-                            initPagPlayerAndCallback(PAGFile.Load(bytes), call, result);
+                            initPagPlayerAndCallbackNew(PAGFile.Load(bytes), call, result);
                         }
                     });
 
@@ -246,6 +284,33 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         } else {
             result.error("-1100", "未添加资源", null);
         }
+    }
+
+    private void initPagPlayerAndCallbackNew(PAGFile pagFile, MethodCall call, final Result result) {
+        if (!availableList.isEmpty()) {
+            int index = availableList.removeFirst();
+            float scaleX = ((float) cellSize) / pagFile.width();
+            float scaleY = ((float) cellSize) / pagFile.height();
+            Matrix transform = new Matrix();
+            transform.setScale(scaleX, scaleY);
+            int column = index / lineCnt;
+            int row = index % lineCnt;
+            transform.postTranslate(cellSize * column, row * cellSize);
+            pagFile.setMatrix(transform);
+            pagFile.setDuration(10000000);
+
+            canvas.addLayer(pagFile);
+            canAdd = false;
+        }
+        final HashMap<String, Object> callback = new HashMap<String, Object>();
+        callback.put(_argumentTextureId, canvasEntry.id());
+        callback.put(_argumentWidth, (double) cellSize);
+        callback.put(_argumentHeight, (double) cellSize);
+
+//        canvasPlayer.flush();
+//
+//        canvasPlayer.start();
+        result.success(callback);
     }
 
     private void initPagPlayerAndCallback(PAGFile composition, MethodCall call, final Result result) {

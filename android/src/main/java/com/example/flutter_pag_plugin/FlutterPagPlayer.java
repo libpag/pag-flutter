@@ -6,6 +6,7 @@ import android.animation.ValueAnimator;
 import android.graphics.SurfaceTexture;
 import android.view.animation.LinearInterpolator;
 
+import org.libpag.PAGComposition;
 import org.libpag.PAGFile;
 import org.libpag.PAGPlayer;
 import org.libpag.PAGSurface;
@@ -39,7 +40,7 @@ public class FlutterPagPlayer extends PAGPlayer {
         return isRelease;
     }
 
-    public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
+    public void init(PAGComposition file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
         if (WorkThreadExecutor.multiThread) {
             synchronized (this) {
                 setComposition(file);

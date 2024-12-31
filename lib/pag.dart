@@ -45,6 +45,8 @@ class PAGView extends StatefulWidget {
   /// 加载失败时的默认控件构造器
   final Widget Function(BuildContext context)? defaultBuilder;
 
+  final int cnt;
+
   static const int REPEAT_COUNT_LOOP = -1; //无限循环
   static const int REPEAT_COUNT_DEFAULT = 1; //默认仅播放一次
 
@@ -61,6 +63,7 @@ class PAGView extends StatefulWidget {
     this.onAnimationCancel,
     this.onAnimationRepeat,
     this.defaultBuilder,
+        this.cnt = 0,
     Key? key,
   })  : this.bytesData = null,
         this.assetName = null,
@@ -81,6 +84,7 @@ class PAGView extends StatefulWidget {
     this.onAnimationCancel,
     this.onAnimationRepeat,
     this.defaultBuilder,
+        this.cnt = 0,
     Key? key,
   })  : this.bytesData = null,
         this.url = null,
@@ -100,6 +104,7 @@ class PAGView extends StatefulWidget {
     this.onAnimationCancel,
     this.onAnimationRepeat,
     this.defaultBuilder,
+        this.cnt = 0,
     Key? key,
   })  : this.url = null,
         this.assetName = null,
@@ -187,6 +192,7 @@ class PAGViewState extends State<PAGView> {
         _textureId = result[_argumentTextureId];
         rawWidth = result[_argumentWidth] ?? 0;
         rawHeight = result[_argumentHeight] ?? 0;
+        print("salieri: $_textureId");
       }
       if (mounted) {
         setState(() {
@@ -256,12 +262,17 @@ class PAGViewState extends State<PAGView> {
 
   @override
   Widget build(BuildContext context) {
+    int column = widget.cnt % 10;
+    int row = widget.cnt ~/ 10;
     if (_hasLoadTexture) {
       return SizedBox(
         width: widget.width ?? (rawWidth / 2),
         height: widget.height ?? (rawHeight / 2),
-        child: Texture(textureId: _textureId),
-      );
+        child: CroppedWidget(
+          rect: Rect.fromLTRB(row * 100, column * 100, row * 100 + 100, column * 100 + 100),
+          child: SizedBox(width: 1000, height: 1000, child: Texture(textureId: _textureId,),)
+        )
+        );
     } else {
       return widget.defaultBuilder?.call(context) ??
           SizedBox(
@@ -296,5 +307,41 @@ class PAG {
   // 设置缓存数量，默认10
   static void setCacheSize(int size) {
     PAGViewState._channel.invokeMethod(PAGViewState._nativeSetCacheSize, {PAGViewState._argumentCacheSize: size});
+  }
+}
+
+class CroppedWidget extends StatelessWidget {
+  final Widget child;
+  final Rect rect;
+
+  const CroppedWidget({
+    Key? key,
+    required this.child,
+    required this.rect,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRect(
+      child: FittedBox(
+        fit: BoxFit.fill,
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: rect.width,
+          height: rect.height,
+          child: OverflowBox(
+            minWidth: 0.0,
+            maxWidth: double.infinity,
+            minHeight: 0.0,
+            maxHeight: double.infinity,
+            alignment: Alignment.topLeft,
+            child: Transform.translate(
+              offset: Offset(-rect.left, -rect.top),
+              child: child,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

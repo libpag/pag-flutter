@@ -21,8 +21,10 @@ class MyApp extends StatelessWidget {
 }
 
 class MyHome extends StatefulWidget {
+  // @override
+  // _MyHomeState createState() => _MyHomeState();
   @override
-  _MyHomeState createState() => _MyHomeState();
+  _MyListHomeState createState() => _MyListHomeState();
 }
 
 ///PAG用于ListView，用于测试加载速度
@@ -60,6 +62,7 @@ class _MyListHomeState extends State<MyHome> {
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
+
                         PAGView.asset(
                           'data/${index%20}.pag',
                           width: (index % 7) * 20 + 10,
@@ -68,6 +71,7 @@ class _MyListHomeState extends State<MyHome> {
                           repeatCount: PAGView.REPEAT_COUNT_LOOP,
                           initProgress: 0.25,
                           autoPlay: true,
+                          cnt: index,
                           key: ValueKey(index),
                         ),
                       ],
