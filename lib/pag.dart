@@ -42,6 +42,10 @@ class PAGView extends StatefulWidget {
   /// Notifies the repetition of the animation.
   final PAGCallback? onAnimationRepeat;
 
+  final bool reuse;
+
+  final String? reuseKey;
+
   /// 加载失败时的默认控件构造器
   final Widget Function(BuildContext context)? defaultBuilder;
 
@@ -61,10 +65,13 @@ class PAGView extends StatefulWidget {
     this.onAnimationCancel,
     this.onAnimationRepeat,
     this.defaultBuilder,
+    this.reuse = true,
+    String? reuseKey,
     Key? key,
   })  : this.bytesData = null,
         this.assetName = null,
         this.package = null,
+        this.reuseKey = reuseKey ?? url,
         super(key: key);
 
   const PAGView.asset(
@@ -81,9 +88,12 @@ class PAGView extends StatefulWidget {
     this.onAnimationCancel,
     this.onAnimationRepeat,
     this.defaultBuilder,
+    this.reuse = true,
+    String? reuseKey,
     Key? key,
   })  : this.bytesData = null,
         this.url = null,
+        this.reuseKey = reuseKey ?? (package != null ? '$package$assetName' : assetName),
         super(key: key);
 
   const PAGView.bytes(
@@ -103,6 +113,8 @@ class PAGView extends StatefulWidget {
     Key? key,
   })  : this.url = null,
         this.assetName = null,
+        this.reuseKey = null,
+        this.reuse = false,
         super(key: key);
 
   @override
@@ -115,6 +127,9 @@ class PAGViewState extends State<PAGView> {
 
   double rawWidth = 0;
   double rawHeight = 0;
+
+  static int _instanceCounter = 0;
+  late final int instanceId;
 
   static const double defaultSize = 50;
 
@@ -129,6 +144,7 @@ class PAGViewState extends State<PAGView> {
   static const String _nativeEnableCache = "enableCache";
   static const String _nativeSetCacheSize = "setCacheSize";
   static const String _nativeEnableMultiThread = "enableMultiThread";
+  static const String _nativeEnableReuse = "enableReuse";
 
   // 参数
   static const String _argumentTextureId = 'textureId';
@@ -148,6 +164,10 @@ class PAGViewState extends State<PAGView> {
   static const String _argumentCacheEnabled = "cacheEnabled";
   static const String _argumentCacheSize = "cacheSize";
   static const String _argumentMultiThreadEnabled = "multiThreadEnabled";
+  static const String _argumentReuse = "reuse";
+  static const String _argumentReuseKey = "reuseKey";
+  static const String _argumentViewId = "viewId";
+  static const String _argumentReuseEnabled = "reuseEnabled";
 
   // 监听该函数
   static const String _playCallback = 'PAGCallback';
@@ -172,6 +192,7 @@ class PAGViewState extends State<PAGView> {
   @override
   void initState() {
     super.initState();
+    instanceId = _instanceCounter++;
     newTexture();
   }
 
@@ -181,8 +202,18 @@ class PAGViewState extends State<PAGView> {
     double initProcess = widget.initProgress < 0 ? 0 : widget.initProgress;
 
     try {
-      dynamic result =
-          await _channel.invokeMethod(_nativeInit, {_argumentAssetName: widget.assetName, _argumentPackage: widget.package, _argumentUrl: widget.url, _argumentBytes: widget.bytesData, _argumentRepeatCount: repeatCount, _argumentInitProgress: initProcess, _argumentAutoPlay: widget.autoPlay});
+      dynamic result = await _channel.invokeMethod(_nativeInit, {
+        _argumentAssetName: widget.assetName,
+        _argumentPackage: widget.package,
+        _argumentUrl: widget.url,
+        _argumentBytes: widget.bytesData,
+        _argumentRepeatCount: repeatCount,
+        _argumentInitProgress: initProcess,
+        _argumentAutoPlay: widget.autoPlay,
+        _argumentReuse: widget.reuse,
+        _argumentReuseKey: widget.reuseKey,
+        _argumentViewId: instanceId,
+      });
       if (result is Map) {
         _textureId = result[_argumentTextureId];
         rawWidth = result[_argumentWidth] ?? 0;
@@ -194,7 +225,11 @@ class PAGViewState extends State<PAGView> {
         });
         widget.onInit?.call();
       } else {
-        _channel.invokeMethod(_nativeRelease, {_argumentTextureId: _textureId});
+        _channel.invokeMethod(_nativeRelease, {
+          _argumentTextureId: _textureId,
+          _argumentReuse: widget.reuse,
+          _argumentReuseKey: widget.reuseKey,
+          _argumentViewId: instanceId,});
       }
     } catch (e) {
       print('PAGViewState error: $e');
@@ -274,7 +309,12 @@ class PAGViewState extends State<PAGView> {
   @override
   void dispose() {
     super.dispose();
-    _channel.invokeMethod(_nativeRelease, {_argumentTextureId: _textureId});
+    _channel.invokeMethod(_nativeRelease, {
+      _argumentTextureId: _textureId,
+      _argumentReuse: widget.reuse,
+      _argumentReuseKey: widget.reuseKey,
+      _argumentViewId: instanceId,
+    });
     callbackHandlers.remove(_textureId);
   }
 }
@@ -296,5 +336,9 @@ class PAG {
   // 设置缓存数量，默认10
   static void setCacheSize(int size) {
     PAGViewState._channel.invokeMethod(PAGViewState._nativeSetCacheSize, {PAGViewState._argumentCacheSize: size});
+  }
+
+  static void enableReuse(bool enable) {
+    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableReuse, {PAGViewState._argumentReuseEnabled: enable});
   }
 }
