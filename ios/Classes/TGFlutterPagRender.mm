@@ -84,27 +84,35 @@ static int64_t GetCurrentTimeUS() {
     return target;
 }
 
-- (instancetype)initWithPagData:(NSData*)pagData
+- (instancetype)init
+{
+    if (self = [super init]) {
+        _isRelease = FALSE;
+        _textureId = @-1;
+    }
+    return self;
+}
+
+- (void)setUpWithPagData:(NSData*)pagData
                        progress:(double)initProgress
             frameUpdateCallback:(FrameUpdateCallback)frameUpdateCallback
                   eventCallback:(PAGEventCallback)eventCallback
 {
-    if (self = [super init]) {
-        _frameUpdateCallback = frameUpdateCallback;
-        _eventCallback = eventCallback;
-        _initProgress = initProgress;
-        if(pagData){
-            _pagFile = [PAGFile Load:pagData.bytes size:pagData.length];
+    _frameUpdateCallback = frameUpdateCallback;
+    _eventCallback = eventCallback;
+    _initProgress = initProgress;
+    if(pagData){
+        _pagFile = [PAGFile Load:pagData.bytes size:pagData.length];
+        if (!_player) {
             _player = [[PAGPlayer alloc] init];
-            [_player setComposition:_pagFile];
-            _surface = [PAGSurface MakeFromGPU:CGSizeMake(_pagFile.width, _pagFile.height)];
-            [_player setSurface:_surface];
-            [_player setProgress:initProgress];
-            [_player flush];
-            _frameUpdateCallback();
         }
+        [_player setComposition:_pagFile];
+        _surface = [PAGSurface MakeOffscreen:CGSizeMake(_pagFile.width, _pagFile.height)];
+        [_player setSurface:_surface];
+        [_player setProgress:initProgress];
+        [_player flush];
+        _frameUpdateCallback();
     }
-    return self;
 }
 
 - (void)startRender

@@ -27,8 +27,14 @@ typedef void(^PAGEventCallback)(NSString *);
 
 ///当前pag的size
 @property(nonatomic, readonly) CGSize size;
+/// 获取render是否release
+@property (nonatomic, assign) BOOL isRelease;
 
-- (instancetype)initWithPagData:(NSData*)pagData
+@property (nonatomic, strong)NSNumber* textureId;
+
+- (instancetype)init;
+
+- (void)setUpWithPagData:(NSData*)pagData
                        progress:(double)initProgress
             frameUpdateCallback:(FrameUpdateCallback)frameUpdateCallback
                   eventCallback:(PAGEventCallback)eventCallback;
