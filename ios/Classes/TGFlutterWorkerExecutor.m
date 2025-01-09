@@ -37,7 +37,16 @@ static TGFlutterWorkerExecutor *_instance = nil;
 
 - (void)post:(dispatch_block_t)task {
     if (_enableMultiThread) {
-        dispatch_async(_concurrentQueue, task);
+        // task增加随机延迟测试
+        dispatch_async(_concurrentQueue, ^{
+                    uint64_t randomDelay = arc4random_uniform(501);
+                    uint64_t delayInNanoseconds = NSEC_PER_MSEC * randomDelay;
+                    dispatch_time_t popTime = dispatch_time(DISPATCH_TIME_NOW, delayInNanoseconds);
+                    dispatch_after(popTime, dispatch_get_current_queue(), ^{
+                        task();
+                    });
+                });
+//        dispatch_async(_concurrentQueue, task);
     } else {
         dispatch_async(_serialQueue, task);
     }

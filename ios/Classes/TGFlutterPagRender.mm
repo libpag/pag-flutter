@@ -7,6 +7,7 @@
 //
 
 #import "TGFlutterPagRender.h"
+#import "TGFlutterWorkerExecutor.h"
 #import <OpenGLES/EAGL.h>
 #import <OpenGLES/ES2/gl.h>
 #import <OpenGLES/ES2/glext.h>
@@ -87,7 +88,6 @@ static int64_t GetCurrentTimeUS() {
 - (instancetype)init
 {
     if (self = [super init]) {
-        _releaseDone = FALSE;
         _textureId = @-1;
     }
     return self;
@@ -102,17 +102,30 @@ static int64_t GetCurrentTimeUS() {
     _eventCallback = eventCallback;
     _initProgress = initProgress;
     if(pagData){
-        _pagFile = [PAGFile Load:pagData.bytes size:pagData.length];
-        if (!_player) {
-            _player = [[PAGPlayer alloc] init];
+        if ([[TGFlutterWorkerExecutor sharedInstance] enableMultiThread]) {
+            // 防止setup和release、dealloc并行争抢
+            @synchronized(self) {
+                [self setUpPlayerWithPagData:pagData];
+            }
+        } else{
+            [self setUpPlayerWithPagData:pagData];
         }
-        [_player setComposition:_pagFile];
-        _surface = [PAGSurface MakeOffscreen:CGSizeMake(_pagFile.width, _pagFile.height)];
-        [_player setSurface:_surface];
-        [_player setProgress:initProgress];
-        [_player flush];
-        _frameUpdateCallback();
     }
+    _state = ObjectStateSet;
+}
+
+- (void) setUpPlayerWithPagData:(NSData*)pagData
+{
+    _pagFile = [PAGFile Load:pagData.bytes size:pagData.length];
+    if (!_player) {
+        _player = [[PAGPlayer alloc] init];
+    }
+    [_player setComposition:_pagFile];
+    _surface = [PAGSurface MakeOffscreen:CGSizeMake(_pagFile.width, _pagFile.height)];
+    [_player setSurface:_surface];
+    [_player setProgress: _initProgress];
+    [_player flush];
+    _frameUpdateCallback();
 }
 
 - (void)startRender
@@ -177,11 +190,19 @@ static int64_t GetCurrentTimeUS() {
     _frameUpdateCallback();
 }
 
-- (void)releaseRender{
+- (void)invalidateDisplayLink {
     if (_displayLink) {
         [_displayLink invalidate];
         _displayLink = nil;
     }
+}
+
+- (void)clearSurface {
+    if (_surface) {
+        [_surface freeCache];
+        [_surface clearAll];
+    }
+    _state = ObjectStateReleased;
 }
 
 - (void)dealloc {

@@ -62,14 +62,14 @@
 }
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
-  FlutterMethodChannel* channel = [FlutterMethodChannel
-      methodChannelWithName:@"flutter_pag_plugin"
-            binaryMessenger:[registrar messenger]];
-  FlutterPagPlugin* instance = [[FlutterPagPlugin alloc] init];
+    FlutterMethodChannel* channel = [FlutterMethodChannel
+                                     methodChannelWithName:@"flutter_pag_plugin"
+                                     binaryMessenger:[registrar messenger]];
+    FlutterPagPlugin* instance = [[FlutterPagPlugin alloc] init];
     instance.textures = registrar.textures;
     instance.registrar = registrar;
     instance.channel = channel;
-  [registrar addMethodCallDelegate:instance channel:channel];
+    [registrar addMethodCallDelegate:instance channel:channel];
 }
 
 - (void)getLayersUnderPoint:(id)arguments result:(FlutterResult _Nonnull)result {
@@ -83,7 +83,7 @@
 
 - (void)release:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber *textureId = arguments[@"textureId"];
-    if (textureId == 0) {
+    if (textureId == NULL) {
         result(@"");
         return;
     }
@@ -92,17 +92,31 @@
         result(@"");
         return;
     }
-    [render releaseRender];
-    [render setReleaseDone:TRUE];
-    BOOL shouldAddToFreePool = _enableRenderCache && self.freeEntryPool.count < self.maxFreePoolSize;
-    if (shouldAddToFreePool) {
-        [self.freeEntryPool addObject:textureId];
-    } else {
-        [_textures unregisterTexture:textureId.intValue];
-        [render setTextureId:@-1];
-        [self.renderMap removeObjectForKey:textureId];
-    }
-    result(@"");
+    
+    // 异步并行release异常时序处理
+    // release时同时dealloc或者relea 资源synchronized处理
+    // release前未setup release判空处理
+    // release前dealloc render判空处理
+    __weak typeof(self) weakSelf = self;
+    [render invalidateDisplayLink];
+    [[TGFlutterWorkerExecutor sharedInstance] post:^(){
+        if (render == NULL) return;
+        [render clearSurface];
+        dispatch_async(dispatch_get_main_queue(), ^(){
+            BOOL shouldAddToFreePool = weakSelf.enableRenderCache && weakSelf.freeEntryPool.count < weakSelf.maxFreePoolSize;
+            if (shouldAddToFreePool) {
+                [weakSelf.freeEntryPool addObject:textureId];
+                NSLog(@"debug log relese pool add cache %@, pool size:%lu", textureId, (unsigned long)_freeEntryPool.count);
+            } else {
+                [weakSelf.textures unregisterTexture: textureId.intValue];
+                [render setTextureId:@-1];
+                [weakSelf.renderMap removeObjectForKey:textureId];
+                NSLog(@"debug log relese %@, pool size:%lu", textureId, (unsigned long)_freeEntryPool.count);
+            }
+            result(@"");
+        });
+    }];
+
 }
 
 - (void)setProgress:(id)arguments result:(FlutterResult _Nonnull)result {
@@ -186,7 +200,7 @@
             }else{
                 resourcePath = [self.registrar lookupKeyForAsset:assetName];
             }
-
+            
             resourcePath = [[NSBundle mainBundle] pathForResource:resourcePath ofType:nil];
             
             pagData = [NSData dataWithContentsOfFile:resourcePath];
@@ -302,6 +316,7 @@
         textureId = [_textures registerTexture:render];
         [render setTextureId:[NSNumber numberWithLongLong:textureId]];
         [weakSelf.renderMap setObject:render forKey:@(textureId)];
+        NSLog(@"debug log init new %lld, pool size:%lu", textureId, (unsigned long)_freeEntryPool.count);
     } else {
         NSNumber* renderCacheTextureId = [weakSelf getRenderCacheTextureId];
         textureId = [renderCacheTextureId longLongValue];
@@ -309,27 +324,30 @@
         render = [weakSelf.renderMap objectForKey:renderCacheTextureId];
         if (render == NULL){
             result([FlutterError errorWithCode:@"-1101"
-                                      message:@"id异常，未命中缓存！"
-                                      details:nil]);
+                                       message:@"id异常，未命中缓存！"
+                                       details:nil]);
             return;
         }
-        if ([render releaseDone]){
-            result([FlutterError errorWithCode:@"-1102"
-                                      message:@"TGFlutterPagRender异常！"
-                                      details:nil]);
-            return;
-        }
+        NSLog(@"debug log init cache %lld, pool size:%lu", textureId, (unsigned long)_freeEntryPool.count);
     }
+    // render异步并行setup异常时序处理
+    // setup时同时dealloc或者release 资源synchronized处理
+    // setup前已经dealloc render判空处理
+    // setup前已经release 无须处理
     [[TGFlutterWorkerExecutor sharedInstance] post:^(){
-        if ([render releaseDone]){
+        if (render == NULL){
             return;
         }
-        [render setUpWithPagData:pagData progress:progress frameUpdateCallback:^{
-            [weakSelf.textures textureFrameAvailable:textureId];
-        } eventCallback:^(NSString *event) {
-            [weakSelf.channel invokeMethod:PlayCallback arguments:@{ArgumentTextureId:@(textureId), ArgumentEvent:event}];
-        }];
         [render setRepeatCount:repeatCount];
+        [render setUpWithPagData:pagData progress:progress frameUpdateCallback:^{
+            dispatch_async(dispatch_get_main_queue(), ^(){
+                [weakSelf.textures textureFrameAvailable:textureId];
+            });
+        } eventCallback:^(NSString *event) {
+            dispatch_async(dispatch_get_main_queue(), ^(){
+                [weakSelf.channel invokeMethod:PlayCallback arguments:@{ArgumentTextureId:@(textureId), ArgumentEvent:event}];
+            });
+        }];
         dispatch_async(dispatch_get_main_queue(), ^(){
             if (autoPlay) {
                 [render startRender];
