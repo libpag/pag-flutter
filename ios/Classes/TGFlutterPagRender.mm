@@ -87,7 +87,7 @@ static int64_t GetCurrentTimeUS() {
 - (instancetype)init
 {
     if (self = [super init]) {
-        _isRelease = FALSE;
+        _releaseDone = FALSE;
         _textureId = @-1;
     }
     return self;

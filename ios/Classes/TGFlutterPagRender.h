@@ -27,8 +27,8 @@ typedef void(^PAGEventCallback)(NSString *);
 
 ///当前pag的size
 @property(nonatomic, readonly) CGSize size;
-/// 获取render是否release
-@property (nonatomic, assign) BOOL isRelease;
+/// 记录render release执行是否完成
+@property (nonatomic, assign) BOOL releaseDone;
 
 @property (nonatomic, strong)NSNumber* textureId;
 

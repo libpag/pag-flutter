@@ -37,7 +37,7 @@
 /// 用于通信的channel
 @property (nonatomic, strong)FlutterMethodChannel* channel;
 
-///  缓存TGFlutterPagRender textureId，renderMap持有相应TGFlutterPagRender
+///  缓存TGFlutterPagRender textureId，renderMap持有相应TGFlutterPagRender(release完成的)
 @property (nonatomic, strong) NSMutableArray<NSNumber *> *freeEntryPool;
 
 /// 开启TGFlutterPagRender 缓存
@@ -87,21 +87,20 @@
         result(@"");
         return;
     }
-    BOOL shouldAddToFreePool = _enableRenderCache && self.freeEntryPool.count < self.maxFreePoolSize;
     TGFlutterPagRender *render = _renderMap[textureId];
     if (render == NULL){
         result(@"");
         return;
     }
     [render releaseRender];
+    [render setReleaseDone:TRUE];
+    BOOL shouldAddToFreePool = _enableRenderCache && self.freeEntryPool.count < self.maxFreePoolSize;
     if (shouldAddToFreePool) {
         [self.freeEntryPool addObject:textureId];
-        [render setIsRelease:FALSE];
     } else {
         [_textures unregisterTexture:textureId.intValue];
         [render setTextureId:@-1];
         [self.renderMap removeObjectForKey:textureId];
-        [render setIsRelease:TRUE];
     }
     result(@"");
 }
@@ -294,7 +293,7 @@
     }
 }
 
--(void)pagRenderWithPagData1:(NSData *)pagData progress:(double)progress repeatCount:(int)repeatCount autoPlay:(BOOL)autoPlay result:(FlutterResult)result {
+-(void)pagRenderWithPagData:(NSData *)pagData progress:(double)progress repeatCount:(int)repeatCount autoPlay:(BOOL)autoPlay result:(FlutterResult)result {
     __block int64_t textureId = -1;
     __weak typeof(self) weakSelf = self;
     __block TGFlutterPagRender *render;
@@ -314,7 +313,7 @@
                                       details:nil]);
             return;
         }
-        if ([render isRelease]){
+        if ([render releaseDone]){
             result([FlutterError errorWithCode:@"-1102"
                                       message:@"TGFlutterPagRender异常！"
                                       details:nil]);
@@ -322,7 +321,7 @@
         }
     }
     [[TGFlutterWorkerExecutor sharedInstance] post:^(){
-        if ([render isRelease]){
+        if ([render releaseDone]){
             return;
         }
         [render setUpWithPagData:pagData progress:progress frameUpdateCallback:^{
@@ -345,28 +344,6 @@
         return NULL;
     }
     return _freeEntryPool[0];
-}
-
-
--(void)pagRenderWithPagData:(NSData *)pagData progress:(double)progress repeatCount:(int)repeatCount autoPlay:(BOOL)autoPlay result:(FlutterResult)result{
-    __block int64_t textureId = -1;
-    __weak typeof(self) weakSelf = self;
-    TGFlutterPagRender *render = [[TGFlutterPagRender alloc] init];
-    [render setUpWithPagData:pagData progress:progress frameUpdateCallback:^{
-        [weakSelf.textures textureFrameAvailable:textureId];
-   } eventCallback:^(NSString * event) {
-       [weakSelf.channel invokeMethod:PlayCallback arguments:@{ArgumentTextureId:@(textureId), ArgumentEvent:event}];
-   }];
-    [render setRepeatCount:repeatCount];
-    textureId = [self.textures registerTexture:render];
-    if(_renderMap == nil){
-      _renderMap = [[NSMutableDictionary alloc] init];
-    }
-    [_renderMap setObject:render forKey:@(textureId)];
-    result(@{@"textureId":@(textureId), @"width":@([render size].width), @"height":@([render size].height)});
-    if(autoPlay){
-        [render startRender];
-    }
 }
 
 -(NSData *)getCacheData:(NSString *)key{
