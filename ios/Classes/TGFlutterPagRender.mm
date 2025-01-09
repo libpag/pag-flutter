@@ -111,7 +111,6 @@ static int64_t GetCurrentTimeUS() {
             [self setUpPlayerWithPagData:pagData];
         }
     }
-    _state = ObjectStateSet;
 }
 
 - (void) setUpPlayerWithPagData:(NSData*)pagData
@@ -202,7 +201,6 @@ static int64_t GetCurrentTimeUS() {
         [_surface freeCache];
         [_surface clearAll];
     }
-    _state = ObjectStateReleased;
 }
 
 - (void)dealloc {

@@ -19,13 +19,7 @@ NS_ASSUME_NONNULL_BEGIN
 typedef void(^FrameUpdateCallback)(void);
 
 typedef void(^PAGEventCallback)(NSString *);
-//用于异步同步执行时序处理
-//缓存对象时序：set -> released -> set -> release -> ... -> dealloc
-//非缓存对象时序：set -> released ->dealloc
-typedef NS_ENUM(NSInteger, ObjectState) {
-    ObjectStateSet,                   // render设置surface资源完成
-    ObjectStateReleased,             // render释放surface cache完成
-};
+
 /**
  Pag纹理渲染类
  */
@@ -33,8 +27,6 @@ typedef NS_ENUM(NSInteger, ObjectState) {
 
 ///当前pag的size
 @property(nonatomic, readonly) CGSize size;
-
-@property (nonatomic, assign) ObjectState state;
 
 @property (nonatomic, strong)NSNumber* textureId;
 
