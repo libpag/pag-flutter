@@ -181,13 +181,19 @@ class PAGViewState extends State<PAGView> {
   static MethodChannel _channel = (const MethodChannel('flutter_pag_plugin')
     ..setMethodCallHandler((result) {
       if (result.method == _playCallback) {
-        callbackHandlers[result.arguments[_argumentTextureId]]?.call(result.arguments[_argumentEvent]);
+        final map = callbackHandlers[result.arguments[_argumentTextureId]];
+        if (map != null) {
+          for (var entry in map.entries) {
+            entry.value?.call(result.arguments[_argumentEvent]);
+          }
+        }
+        // callbackHandlers[result.arguments[_argumentTextureId]]?.call(result.arguments[_argumentEvent]);
       }
 
       return Future<dynamic>.value();
     }));
 
-  static Map<int, Function(String event)?> callbackHandlers = {};
+  static Map<int, Map<int, Function(String event)?>?> callbackHandlers = {};
 
   @override
   void initState() {
@@ -236,14 +242,15 @@ class PAGViewState extends State<PAGView> {
     }
 
     // 事件回调
-    if (_textureId >= 0) {
+    if (_textureId >= 0 && mounted) {
       var events = <String, PAGCallback?>{
         _eventStart: widget.onAnimationStart,
         _eventEnd: widget.onAnimationEnd,
         _eventCancel: widget.onAnimationCancel,
         _eventRepeat: widget.onAnimationRepeat,
       };
-      callbackHandlers[_textureId] = (event) {
+      if (!callbackHandlers.containsKey(_textureId)) callbackHandlers[_textureId] = {};
+      callbackHandlers[_textureId]?[instanceId] = (event) {
         events[event]?.call();
       };
     }
@@ -315,7 +322,10 @@ class PAGViewState extends State<PAGView> {
       _argumentReuseKey: widget.reuseKey,
       _argumentViewId: instanceId,
     });
-    callbackHandlers.remove(_textureId);
+    callbackHandlers[_textureId]?.remove(instanceId);
+    if (callbackHandlers[_textureId] != null && callbackHandlers[_textureId]!.isEmpty) {
+      callbackHandlers.remove(_textureId);
+    }
   }
 }
 
