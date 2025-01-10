@@ -194,6 +194,9 @@ class PAGViewState extends State<PAGView> {
     super.initState();
     instanceId = _instanceCounter++;
     newTexture();
+    PAG.enableMultiThread(true);
+    PAG.enableCache(true);
+    PAG.setCacheSize(20);
   }
 
   // 初始化

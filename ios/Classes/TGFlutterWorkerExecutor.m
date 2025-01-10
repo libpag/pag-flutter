@@ -37,7 +37,7 @@ static TGFlutterWorkerExecutor *_instance = nil;
 
 - (void)post:(dispatch_block_t)task {
     if (_enableMultiThread) {
-        // task增加随机延迟测试
+        //task增加随机延迟测试
         dispatch_async(_concurrentQueue, ^{
                     uint64_t randomDelay = arc4random_uniform(501);
                     uint64_t delayInNanoseconds = NSEC_PER_MSEC * randomDelay;

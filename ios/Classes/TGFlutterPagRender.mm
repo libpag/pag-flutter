@@ -198,8 +198,15 @@ static int64_t GetCurrentTimeUS() {
 
 - (void)clearSurface {
     if (_surface) {
-        [_surface freeCache];
-        [_surface clearAll];
+        if ([[TGFlutterWorkerExecutor sharedInstance] enableMultiThread]) {
+            @synchronized(self) {
+                [_surface freeCache];
+                [_surface clearAll];
+            }
+        } else{
+            [_surface freeCache];
+            [_surface clearAll];
+        }
     }
 }
 
