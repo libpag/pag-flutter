@@ -65,6 +65,7 @@
         _enableRenderCache = YES;
         _maxFreePoolSize = 10;
         _freeEntryPool = [[NSMutableArray alloc] init];
+        _preFreeEntryPool = [[NSMutableArray alloc] init];
         _renderMap = [[NSMutableDictionary alloc] init];
         _reuseMap = [[NSMutableDictionary alloc] init];
         _enableReuse = YES;
@@ -85,6 +86,11 @@
 
 - (void)getLayersUnderPoint:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber* textureId = arguments[@"textureId"];
+    // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
+    if(!textureId || [textureId compare:@0] == NSOrderedAscending){
+        result(@-1);
+        return;
+    }
     NSNumber* x = arguments[@"x"];
     NSNumber* y = arguments[@"y"];
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
@@ -94,7 +100,11 @@
 
 - (void)release:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber *textureId = arguments[@"textureId"];
-    
+    // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
+    if(!textureId || [textureId compare:@0] == NSOrderedAscending){
+        result(@-1);
+        return;
+    }
     BOOL reuse = NO;
     if (arguments[@"reuse"]) {
         reuse = [[arguments objectForKey:@"reuse"] boolValue];
@@ -123,46 +133,47 @@
         }
     }
     
-    if (!textureId || [textureId compare:@0] == NSOrderedAscending) {
-        result(@"");
-        return;
-    }
     TGFlutterPagRender *render = _renderMap[textureId];
     if (!render){
-        result(@"");
+        FlutterError * flutterError = [FlutterError errorWithCode:@"-1102"
+                                                          message:@"render异常"
+                                                          details:nil];
+        result(flutterError);
+        [self onInitPagError:reuse reuseKey:reuseKey flutterError:flutterError];
         return;
     }
     
-    // 异步并行release异常时序处理
-    // release时同时dealloc或者relea 资源synchronized处理
-    // release前未setup release判空处理
-    // release前dealloc render判空处理
-    __weak typeof(self) weakSelf = self;
+    
+    // 防止并行加入freeEntryPool超过maxFreePoolSize
+    BOOL shouldAddToFreePool = self.enableRenderCache && self.preFreeEntryPool.count < self.maxFreePoolSize;
     [render invalidateDisplayLink];
-    [[TGFlutterWorkerExecutor sharedInstance] post:^(){
-        if (!render) return;
-        [render clearSurface];
-        dispatch_async(dispatch_get_main_queue(), ^(){
-            BOOL shouldAddToFreePool = weakSelf.enableRenderCache && weakSelf.freeEntryPool.count < weakSelf.maxFreePoolSize;
-            if (shouldAddToFreePool) {
+    if (shouldAddToFreePool) {
+        [self.preFreeEntryPool addObject:textureId];
+        // 异步并行release异常时序处理
+        // release时同时setup 资源synchronized处理
+        // release前未setup release判空处理
+        __weak typeof(self) weakSelf = self;
+        [[TGFlutterWorkerExecutor sharedInstance] post:^(){
+            if (!render) return;
+            [render clearSurface];
+            dispatch_async(dispatch_get_main_queue(), ^(){
                 [weakSelf.freeEntryPool addObject:textureId];
-                NSLog(@"debug log relese pool add cache %@, pool size:%lu", textureId, (unsigned long) self->_freeEntryPool.count);
-            } else {
-                [weakSelf.textures unregisterTexture: textureId.intValue];
-                [render setTextureId:@-1];
-                [weakSelf.renderMap removeObjectForKey:textureId];
-                NSLog(@"debug log relese %@, pool size:%lu", textureId, (unsigned long) self->_freeEntryPool.count);
-            }
-            result(@"");
-        });
-    }];
-
+                result(@"");
+            });
+        }];
+    } else {
+        [self.textures unregisterTexture: textureId.intValue];
+        [render setTextureId:@-1];
+        [self.renderMap removeObjectForKey:textureId];
+        result(@"");
+    }
 }
 
 - (void)setProgress:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber* textureId = arguments[@"textureId"];
-    if(textureId == nil){
-        result(@"");
+    // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
+    if(!textureId || [textureId compare:@0] == NSOrderedAscending){
+        result(@-1);
         return;
     }
     double progress = 0.0;
@@ -176,8 +187,9 @@
 
 - (void)pause:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber* textureId = arguments[@"textureId"];
-    if(textureId == nil){
-        result(@"");
+    // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
+    if(!textureId || [textureId compare:@0] == NSOrderedAscending){
+        result(@-1);
         return;
     }
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
@@ -187,8 +199,9 @@
 
 - (void)stop:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber* textureId = arguments[@"textureId"];
-    if(textureId == nil){
-        result(@"");
+    // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
+    if(!textureId || [textureId compare:@0] == NSOrderedAscending){
+        result(@-1);
         return;
     }
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
@@ -198,8 +211,9 @@
 
 - (void)start:(id)arguments result:(FlutterResult _Nonnull)result {
     NSNumber* textureId = arguments[@"textureId"];
-    if(textureId == nil){
-        result(@"");
+    // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
+    if(!textureId || [textureId compare:@0] == NSOrderedAscending){
+        result(@-1);
         return;
     }
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
@@ -243,7 +257,25 @@
     }
     
     if (_enableReuse && reuse){
-        [self reuseSetupWithreuseKey:reuseKey viewId:viewId result:result];
+        // 设置reuseKey 复用的render信息对象
+        if (reuseKey && [reuseKey length] > 0){
+            ReuseItem *reuseItem = [_reuseMap objectForKey:reuseKey];
+            NSComparisonResult comparisonResult = [[reuseItem getTextureId] compare:@0];
+            BOOL existReuseRender = (comparisonResult == NSOrderedSame || comparisonResult == NSOrderedDescending) && [_renderMap objectForKey:[reuseItem getTextureId]];
+            if (reuseItem && existReuseRender) {
+                [reuseItem.usingViewSet addObject:@(viewId)];
+                result(@{@"textureId": [reuseItem getTextureId], @"width": @([reuseItem getWidth]), @"height": @([reuseItem getHeight])});
+                return;
+            } else if (reuseItem) {
+                [reuseItem.usingViewSet addObject:@(viewId)];
+                [reuseItem.mutableResultsArray addObject:result];
+                return;
+            } else {
+                ReuseItem *tempItem = [[ReuseItem alloc] init];
+                [tempItem.usingViewSet addObject:@(viewId)];
+                [_reuseMap setObject:tempItem forKey:reuseKey];
+            }
+        }
     }
     
     NSString* assetName = arguments[@"assetName"];
@@ -294,7 +326,7 @@
                                                                       message:[NSString stringWithFormat:@"url资源加载错误: %@", key]
                                                                       details:nil];
                     result(flutterError);
-                    [self onInitPagError:reuse reuseKey:reuseKey flutterError:flutterError];
+                    [weak_self onInitPagError:reuse reuseKey:reuseKey flutterError:flutterError];
                 }
             }];
         }else{
@@ -313,26 +345,6 @@
                                                               details:nil];
             result(flutterError);
             [self onInitPagError:reuse reuseKey:reuseKey flutterError:flutterError];
-        }
-    }
-}
-
-// 设置reuseKey 复用的render信息对象
-- (void) reuseSetupWithreuseKey:(NSString *)reuseKey viewId:(int)viewId result:(FlutterResult)result {
-    if (reuseKey && [reuseKey length] > 0){
-        ReuseItem *reuseItem = [_reuseMap objectForKey:reuseKey];
-        if (reuseItem && [reuseItem getTextureId] >= 0) {
-            [reuseItem.usingViewSet addObject:@(viewId)];
-            result(@{@"textureId": [reuseItem getTextureId], @"width": @([reuseItem getWidth]), @"height": @([reuseItem getHeight])});
-            return;
-        } else if (reuseItem) {
-            [reuseItem.usingViewSet addObject:@(viewId)];
-            [reuseItem.mutableResultsArray addObject:result];
-            return;
-        } else {
-            ReuseItem *tempItem = [[ReuseItem alloc] init];
-            [tempItem.usingViewSet addObject:@(viewId)];
-            [_reuseMap setObject:tempItem forKey:reuseKey];
         }
     }
 }
@@ -426,21 +438,20 @@
         textureId = [_textures registerTexture:render];
         [render setTextureId:[NSNumber numberWithLongLong:textureId]];
         [weakSelf.renderMap setObject:render forKey:@(textureId)];
-        NSLog(@"debug log init new %lld, pool size:%lu", textureId, (unsigned long)_freeEntryPool.count);
     } else {
         NSNumber* renderCacheTextureId = [weakSelf getRenderCacheTextureId];
         textureId = [renderCacheTextureId longLongValue];
-        [weakSelf.freeEntryPool removeObjectAtIndex:0];
+        [weakSelf.preFreeEntryPool removeObject:renderCacheTextureId];
+        [weakSelf.freeEntryPool removeObject:renderCacheTextureId];
         render = [weakSelf.renderMap objectForKey:renderCacheTextureId];
         if (!render){
             FlutterError * flutterError = [FlutterError errorWithCode:@"-1101"
-                                                              message:[NSString stringWithFormat:@"id异常，未命中缓存: %@", renderCacheTextureId] //@"id异常，未命中缓存！"
+                                                              message:@"id异常，未命中缓存！"
                                                               details:nil];
             result(flutterError);
             [weakSelf onInitPagError:reuse reuseKey:reuseKey flutterError:flutterError];
             return;
         }
-        NSLog(@"debug log init cache %lld, pool size:%lu", textureId, (unsigned long)_freeEntryPool.count);
     }
     // render异步并行setup异常时序处理
     // setup时同时dealloc或者release 资源synchronized处理
@@ -473,8 +484,8 @@
             }
             result(@{@"textureId": @(textureId), @"width": @([render size].width), @"height": @([render size].height)});
             // 复用的render初始化完成 同步复用相同reuseKey result回调
-            if (_enableReuse && reuse && reuseKey && [reuseKey length] > 0){
-                ReuseItem *reuseItem = [_reuseMap objectForKey:reuseKey];
+            if (weakSelf.enableReuse && reuse && reuseKey && [reuseKey length] > 0){
+                ReuseItem *reuseItem = [weakSelf.reuseMap objectForKey:reuseKey];
                 if (reuseItem) {
                     [reuseItem setUpWithTextureId:@(textureId) width:[render size].width height:[render size].height];
                     for (FlutterResult result in reuseItem.mutableResultsArray) {
@@ -485,9 +496,9 @@
                     [reuseItem.mutableResultsArray removeAllObjects];
                 } else {
                     ReuseItem *tempItem = [[ReuseItem alloc] init];
-                    [tempItem setUpWithTextureId:@(textureId) width:[render size].width height:[render size].height];
                     [tempItem.usingViewSet addObject:@(viewId)];
-                    [_reuseMap setObject:tempItem forKey:reuseKey];
+                    [weakSelf.reuseMap setObject:tempItem forKey:reuseKey];
+                    [tempItem setUpWithTextureId:@(textureId) width:[render size].width height:[render size].height];
                 }
             }
         });
@@ -511,7 +522,7 @@
 
 -(NSNumber *) getRenderCacheTextureId{
     if (_freeEntryPool.count <= 0){
-        return NULL;
+        return nil;
     }
     return _freeEntryPool[0];
 }
