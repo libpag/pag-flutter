@@ -10,16 +10,52 @@
 #import "TGFlutterPagDownloadManager.h"
 #import "TGFlutterWorkerExecutor.h"
 #import "ReuseItem.h"
-/**
- FlutterPagPlugin，处理flutter MethodChannel约定的方法
- */
-#define PlayCallback @"PAGCallback"
-#define ArgumentEvent @"PAGEvent"
-#define ArgumentTextureId @"textureId"
-#define EnableCache @"enableCache"
-#define SetCacheSize @"setCacheSize"
-#define EnableMultiThread @"enableMultiThread"
-#define EnableReuse @"enableReuse"
+
+// flutter MethodChannel约定的方法
+static NSString *const methodGetPlatformVersion = @"getPlatformVersion";
+static NSString *const methodInitPag = @"initPag";
+static NSString *const methodRelease = @"release";
+static NSString *const methodStart = @"start";
+static NSString *const methodStop = @"stop";
+static NSString *const methodPause = @"pause";
+static NSString *const methodSetProgress = @"setProgress";
+static NSString *const methodGetLayersUnderPoint = @"getLayersUnderPoint";
+static NSString *const methodEnableCache = @"enableCache";
+static NSString *const methodSetCacheSize = @"setCacheSize";
+static NSString *const methodEnableMultiThread = @"enableMultiThread";
+static NSString *const methodEnableReuse = @"enableReuse";
+
+
+// 参数
+static NSString *const argumentTextureId = @"textureId";
+static NSString *const argumentAssetName = @"assetName";
+static NSString *const argumentPackage = @"package";
+static NSString *const argumentUrl = @"url";
+static NSString *const argumentBytesData = @"bytesData";
+static NSString *const argumentRepeatCount = @"repeatCount";
+static NSString *const argumentInitProgress = @"initProgress";
+static NSString *const argumentAutoPlay = @"autoPlay";
+static NSString *const argumentWidth = @"width";
+static NSString *const argumentHeight = @"height";
+static NSString *const argumentPointX = @"x";
+static NSString *const argumentPointY = @"y";
+static NSString *const argumentProgress = @"progress";
+static NSString *const argumentPagEvent = @"PAGEvent";
+static NSString *const argumentCacheEnabled = @"cacheEnabled";
+static NSString *const argumentCacheSize = @"cacheSize";
+static NSString *const argumentMultiThreadEnabled = @"multiThreadEnabled";
+static NSString *const argumentReuse = @"reuse";
+static NSString *const argumentReuseKey = @"reuseKey";
+static NSString *const argumentViewId = @"viewId";
+static NSString *const argumentReuseEnabled = @"reuseEnabled";
+
+// 回调方法
+static NSString *const playCallback = @"PAGCallback";
+static NSString *const eventStart = @"onAnimationStart";
+static NSString *const eventEnd = @"onAnimationEnd";
+static NSString *const eventCancel = @"onAnimationCancel";
+static NSString *const eventRepeat = @"onAnimationRepeat";
+static NSString *const eventUpdate = @"onAnimationUpdate";
 
 @interface FlutterPagPlugin()
 
@@ -74,9 +110,8 @@
 }
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {
-    FlutterMethodChannel* channel = [FlutterMethodChannel
-                                     methodChannelWithName:@"flutter_pag_plugin"
-                                     binaryMessenger:[registrar messenger]];
+    FlutterMethodChannel* channel = [FlutterMethodChannel methodChannelWithName:@"flutter_pag_plugin" 
+                                                                binaryMessenger:[registrar messenger]];
     FlutterPagPlugin* instance = [[FlutterPagPlugin alloc] init];
     instance.textures = registrar.textures;
     instance.registrar = registrar;
@@ -85,39 +120,39 @@
 }
 
 - (void)getLayersUnderPoint:(id)arguments result:(FlutterResult _Nonnull)result {
-    NSNumber* textureId = arguments[@"textureId"];
+    NSNumber* textureId = arguments[argumentTextureId];
     // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
     if(!textureId || [textureId compare:@0] == NSOrderedAscending){
         result(@-1);
         return;
     }
-    NSNumber* x = arguments[@"x"];
-    NSNumber* y = arguments[@"y"];
+    NSNumber* x = arguments[argumentPointX];
+    NSNumber* y = arguments[argumentPointY];
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
     NSArray<NSString *> *names = [render getLayersUnderPoint:CGPointMake(x.doubleValue, y.doubleValue)];
     result(names);
 }
 
 - (void)release:(id)arguments result:(FlutterResult _Nonnull)result {
-    NSNumber *textureId = arguments[@"textureId"];
+    NSNumber *textureId = arguments[argumentTextureId];
     // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
     if(!textureId || [textureId compare:@0] == NSOrderedAscending){
         result(@-1);
         return;
     }
     BOOL reuse = NO;
-    if (arguments[@"reuse"]) {
-        reuse = [[arguments objectForKey:@"reuse"] boolValue];
+    if (arguments[argumentReuse]) {
+        reuse = [[arguments objectForKey:argumentReuse] boolValue];
     }
 
     NSString *reuseKey = nil;
-    if (arguments[@"reuseKey"]) {
-        reuseKey = [arguments objectForKey:@"reuseKey"];
+    if (arguments[argumentReuseKey]) {
+        reuseKey = [arguments objectForKey:argumentReuseKey];
     }
 
     int viewId = -1;
-    if (arguments[@"viewId"]) {
-        viewId = [[arguments objectForKey:@"viewId"] intValue];
+    if (arguments[argumentViewId]) {
+        viewId = [[arguments objectForKey:argumentViewId] intValue];
     }
     
     if (_enableReuse && reuse && reuseKey && [reuseKey length] > 0){
@@ -170,15 +205,15 @@
 }
 
 - (void)setProgress:(id)arguments result:(FlutterResult _Nonnull)result {
-    NSNumber* textureId = arguments[@"textureId"];
+    NSNumber* textureId = arguments[argumentTextureId];
     // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
     if(!textureId || [textureId compare:@0] == NSOrderedAscending){
         result(@-1);
         return;
     }
     double progress = 0.0;
-    if (arguments[@"progress"]) {
-        progress = [arguments[@"progress"] doubleValue];
+    if (arguments[argumentProgress]) {
+        progress = [arguments[argumentProgress] doubleValue];
     }
     TGFlutterPagRender *render = [_renderMap objectForKey:textureId];
     [render setProgress:progress];
@@ -186,7 +221,7 @@
 }
 
 - (void)pause:(id)arguments result:(FlutterResult _Nonnull)result {
-    NSNumber* textureId = arguments[@"textureId"];
+    NSNumber* textureId = arguments[argumentTextureId];
     // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
     if(!textureId || [textureId compare:@0] == NSOrderedAscending){
         result(@-1);
@@ -198,7 +233,7 @@
 }
 
 - (void)stop:(id)arguments result:(FlutterResult _Nonnull)result {
-    NSNumber* textureId = arguments[@"textureId"];
+    NSNumber* textureId = arguments[argumentTextureId];
     // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
     if(!textureId || [textureId compare:@0] == NSOrderedAscending){
         result(@-1);
@@ -210,7 +245,7 @@
 }
 
 - (void)start:(id)arguments result:(FlutterResult _Nonnull)result {
-    NSNumber* textureId = arguments[@"textureId"];
+    NSNumber* textureId = arguments[argumentTextureId];
     // flutter端异步等待textureId回调 没有回调release时 textureId 为 -1
     if(!textureId || [textureId compare:@0] == NSOrderedAscending){
         result(@-1);
@@ -222,38 +257,38 @@
 }
 
 - (void)initPag:(id)arguments result:(FlutterResult _Nonnull)result {
-    if (arguments == nil || (arguments[@"assetName"] == NSNull.null && arguments[@"url"] == NSNull.null && arguments[@"bytesData"] == NSNull.null)) {
+    if (arguments == nil || (arguments[argumentAssetName] == NSNull.null && arguments[argumentUrl] == NSNull.null && arguments[argumentBytesData] == NSNull.null)) {
         result(@-1);
         NSLog(@"showPag arguments is nil");
         return;
     }
     double initProgress = 0.0;
-    if (arguments[@"initProgress"]) {
-        initProgress = [arguments[@"initProgress"] doubleValue];
+    if (arguments[argumentInitProgress]) {
+        initProgress = [arguments[argumentInitProgress] doubleValue];
     }
     int repeatCount = -1;
-    if(arguments[@"repeatCount"]){
-        repeatCount = [[arguments objectForKey:@"repeatCount"] intValue];
+    if(arguments[argumentRepeatCount]){
+        repeatCount = [[arguments objectForKey:argumentRepeatCount] intValue];
     }
     
     BOOL autoPlay = NO;
-    if(arguments[@"autoPlay"]){
-        autoPlay = [[arguments objectForKey:@"autoPlay"] boolValue];
+    if(arguments[argumentAutoPlay]){
+        autoPlay = [[arguments objectForKey:argumentAutoPlay] boolValue];
     }
     
     BOOL reuse = NO;
-    if (arguments[@"reuse"]) {
-        reuse = [[arguments objectForKey:@"reuse"] boolValue];
+    if (arguments[argumentReuse]) {
+        reuse = [[arguments objectForKey:argumentReuse] boolValue];
     }
 
     NSString *reuseKey = nil;
-    if (arguments[@"reuseKey"]) {
-        reuseKey = [arguments objectForKey:@"reuseKey"];
+    if (arguments[argumentReuseKey]) {
+        reuseKey = [arguments objectForKey:argumentReuseKey];
     }
 
     int viewId = -1;
-    if (arguments[@"viewId"]) {
-        viewId = [[arguments objectForKey:@"viewId"] intValue];
+    if (arguments[argumentViewId]) {
+        viewId = [[arguments objectForKey:argumentViewId] intValue];
     }
     
     if (_enableReuse && reuse){
@@ -264,7 +299,7 @@
             BOOL existReuseRender = (comparisonResult == NSOrderedSame || comparisonResult == NSOrderedDescending) && [_renderMap objectForKey:[reuseItem getTextureId]];
             if (reuseItem && existReuseRender) {
                 [reuseItem.usingViewSet addObject:@(viewId)];
-                result(@{@"textureId": [reuseItem getTextureId], @"width": @([reuseItem getWidth]), @"height": @([reuseItem getHeight])});
+                result(@{argumentTextureId: [reuseItem getTextureId], argumentWidth: @([reuseItem getWidth]), argumentHeight: @([reuseItem getHeight])});
                 return;
             } else if (reuseItem) {
                 [reuseItem.usingViewSet addObject:@(viewId)];
@@ -272,19 +307,20 @@
                 return;
             } else {
                 ReuseItem *tempItem = [[ReuseItem alloc] init];
+                [tempItem setReuseKey:reuseKey];
                 [tempItem.usingViewSet addObject:@(viewId)];
                 [_reuseMap setObject:tempItem forKey:reuseKey];
             }
         }
     }
     
-    NSString* assetName = arguments[@"assetName"];
+    NSString* assetName = arguments[argumentAssetName];
     NSData *pagData = nil;
     if ([assetName isKindOfClass:NSString.class] && assetName.length > 0) {
         NSString *key = assetName;
         pagData = [self getCacheData:key];
         if (!pagData) {
-            NSString* package = arguments[@"package"];
+            NSString* package = arguments[argumentPackage];
             NSString* resourcePath;
             if(package && [package isKindOfClass:NSString.class] && package.length > 0){
                 resourcePath = [self.registrar lookupKeyForAsset:assetName fromPackage:package];
@@ -299,7 +335,14 @@
             
         }
         if (pagData){
-            [self pagRenderWithPagData:pagData progress:initProgress repeatCount:repeatCount autoPlay:autoPlay result:result reuse:reuse reuseKey:reuseKey viewId:viewId];
+            [self pagRenderWithPagData:pagData 
+                              progress:initProgress
+                           repeatCount:repeatCount
+                              autoPlay:autoPlay
+                                result:result 
+                                 reuse:reuse
+                              reuseKey:reuseKey
+                                viewId:viewId];
         } else{
             FlutterError * flutterError = [FlutterError errorWithCode:@"-1100"
                                                               message:[NSString stringWithFormat:@"asset资源加载错误: %@", assetName]
@@ -309,7 +352,7 @@
         }
 
     }
-    NSString* url = arguments[@"url"];
+    NSString* url = arguments[argumentUrl];
     if ([url isKindOfClass:NSString.class] && url.length > 0) {
         NSURLSessionDownloadTask *task;
         [task resume];
@@ -320,7 +363,14 @@
             [TGFlutterPagDownloadManager download:url completionHandler:^(NSData * _Nonnull data, NSError * _Nonnull error) {
                 if (data) {
                     [weak_self setCacheData:key data:pagData];
-                    [weak_self pagRenderWithPagData:data progress:initProgress repeatCount:repeatCount autoPlay:autoPlay result:result reuse:reuse reuseKey:reuseKey viewId:viewId];
+                    [weak_self pagRenderWithPagData:data 
+                                           progress:initProgress
+                                        repeatCount:repeatCount
+                                           autoPlay:autoPlay
+                                             result:result
+                                              reuse:reuse 
+                                           reuseKey:reuseKey
+                                             viewId:viewId];
                 }else{
                     FlutterError * flutterError = [FlutterError errorWithCode:@"-1100"
                                                                       message:[NSString stringWithFormat:@"url资源加载错误: %@", key]
@@ -330,15 +380,29 @@
                 }
             }];
         }else{
-            [self pagRenderWithPagData:pagData progress:initProgress repeatCount:repeatCount autoPlay:autoPlay result:result reuse:reuse reuseKey:reuseKey viewId:viewId];
+            [self pagRenderWithPagData:pagData 
+                              progress:initProgress
+                           repeatCount:repeatCount
+                              autoPlay:autoPlay
+                                result:result
+                                 reuse:reuse
+                              reuseKey:reuseKey
+                                viewId:viewId];
         }
     }
     
-    id bytesData = arguments[@"bytesData"];
+    id bytesData = arguments[argumentBytesData];
     if(bytesData != nil && [bytesData isKindOfClass:FlutterStandardTypedData.class]){
         FlutterStandardTypedData *typedData = bytesData;
         if(typedData.type == FlutterStandardDataTypeUInt8 && typedData.data != nil){
-            [self pagRenderWithPagData:typedData.data progress:initProgress repeatCount:repeatCount autoPlay:autoPlay result:result reuse:reuse reuseKey:reuseKey viewId:viewId];
+            [self pagRenderWithPagData:typedData.data 
+                              progress:initProgress
+                           repeatCount:repeatCount
+                              autoPlay:autoPlay
+                                result:result
+                                 reuse:reuse
+                              reuseKey:reuseKey
+                                viewId:viewId];
         }else{
             FlutterError * flutterError = [FlutterError errorWithCode:@"-1100"
                                                               message:@"bytesData 资源加载错误"
@@ -352,7 +416,7 @@
 - (void)enableCache:(id)arguments result:(FlutterResult _Nonnull)result {
     BOOL enable = YES; // 默认开启render cache
     if ([arguments isKindOfClass:[NSDictionary class]]) {
-        id enableValue = [arguments objectForKey:@"cacheEnabled"];
+        id enableValue = [arguments objectForKey:argumentCacheEnabled];
         if ([enableValue isKindOfClass:[NSNumber class]]) {
             enable = [enableValue boolValue];
         }
@@ -362,21 +426,26 @@
 }
 
 - (void)setCacheSize:(id)arguments result:(FlutterResult _Nonnull)result {
-    int maxSize = 10;
+    NSInteger maxSize = 10;
     if ([arguments isKindOfClass:[NSDictionary class]]) {
-        id sizeValue = [arguments objectForKey:@"cacheSize"];
+        id sizeValue = [arguments objectForKey:argumentCacheSize];
         if ([sizeValue isKindOfClass:[NSNumber class]]) {
             maxSize = [sizeValue integerValue];
         }
     }
-    _maxFreePoolSize = maxSize;
+    if (maxSize <= INT_MAX && maxSize >= INT_MIN) {
+        _maxFreePoolSize = (int)maxSize;
+    } else {
+        NSLog(@"Warning: Cache size out of int range, setting default value.");
+        _maxFreePoolSize = 10;
+    }
     result(@"");
 }
 
 - (void)enableMultiThread:(id)arguments result:(FlutterResult _Nonnull)result {
     BOOL enable = YES; // 默认开启 MultiThread
     if ([arguments isKindOfClass:[NSDictionary class]]) {
-        id enableValue = [arguments objectForKey:@"multiThreadEnabled"];
+        id enableValue = [arguments objectForKey:argumentMultiThreadEnabled];
         if ([enableValue isKindOfClass:[NSNumber class]]) {
             enable = [enableValue boolValue];
         }
@@ -388,7 +457,7 @@
 - (void)enableReuse:(id)arguments result:(FlutterResult _Nonnull)result {
     BOOL enable = YES; // 默认开启 enableReuse render 复用
     if ([arguments isKindOfClass:[NSDictionary class]]) {
-        id enableValue = [arguments objectForKey:@"reuseEnabled"];
+        id enableValue = [arguments objectForKey:argumentReuseEnabled];
         if ([enableValue isKindOfClass:[NSNumber class]]) {
             enable = [enableValue boolValue];
         }
@@ -400,29 +469,29 @@
 - (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
     
     id arguments = call.arguments;
-    if ([@"getPlatformVersion" isEqualToString:call.method]) {
+    if ([methodGetPlatformVersion isEqualToString:call.method]) {
         result([@"iOS " stringByAppendingString:[[UIDevice currentDevice] systemVersion]]);
-    } else if([@"initPag" isEqualToString:call.method]){
+    } else if([methodInitPag isEqualToString:call.method]){
         [self initPag:arguments result:result];
-    } else if([@"start" isEqualToString:call.method]){
+    } else if([methodStart isEqualToString:call.method]){
         [self start:arguments result:result];
-    } else if([@"stop" isEqualToString:call.method]){
+    } else if([methodStop isEqualToString:call.method]){
         [self stop:arguments result:result];
-    } else if([@"pause" isEqualToString:call.method]){
+    } else if([methodPause isEqualToString:call.method]){
         [self pause:arguments result:result];
-    } else if([@"setProgress" isEqual:call.method]){
+    } else if([methodSetProgress isEqual:call.method]){
         [self setProgress:arguments result:result];
-    } else if([@"release" isEqualToString:call.method]){
+    } else if([methodRelease isEqualToString:call.method]){
         [self release:arguments result:result];
-    } else if([@"getLayersUnderPoint" isEqualToString:call.method]){
+    } else if([methodGetLayersUnderPoint isEqualToString:call.method]){
         [self getLayersUnderPoint:arguments result:result];
-    } else if([@"enableCache" isEqualToString:call.method]){
+    } else if([methodEnableCache isEqualToString:call.method]){
         [self enableCache:arguments result:result];
-    } else if([SetCacheSize isEqualToString:call.method]){
+    } else if([methodSetCacheSize isEqualToString:call.method]){
         [self setCacheSize:arguments result:result];
-    } else if([EnableMultiThread isEqualToString:call.method]){
+    } else if([methodEnableMultiThread isEqualToString:call.method]){
         [self enableMultiThread:arguments result:result];
-    } else if([EnableReuse isEqualToString:call.method]){
+    } else if([methodEnableReuse isEqualToString:call.method]){
         [self enableReuse:arguments result:result];
     } else {
         result(FlutterMethodNotImplemented);
@@ -475,14 +544,14 @@
             });
         } eventCallback:^(NSString *event) {
             dispatch_async(dispatch_get_main_queue(), ^(){
-                [weakSelf.channel invokeMethod:PlayCallback arguments:@{ArgumentTextureId:@(textureId), ArgumentEvent:event}];
+                [weakSelf.channel invokeMethod:playCallback arguments:@{argumentViewId:@(textureId), argumentPagEvent:event}];
             });
         }];
         dispatch_async(dispatch_get_main_queue(), ^(){
             if (autoPlay) {
                 [render startRender];
             }
-            result(@{@"textureId": @(textureId), @"width": @([render size].width), @"height": @([render size].height)});
+            result(@{argumentTextureId: @(textureId), argumentWidth: @([render size].width), argumentHeight: @([render size].height)});
             // 复用的render初始化完成 同步复用相同reuseKey result回调
             if (weakSelf.enableReuse && reuse && reuseKey && [reuseKey length] > 0){
                 ReuseItem *reuseItem = [weakSelf.reuseMap objectForKey:reuseKey];
@@ -490,7 +559,7 @@
                     [reuseItem setUpWithTextureId:@(textureId) width:[render size].width height:[render size].height];
                     for (FlutterResult result in reuseItem.mutableResultsArray) {
                         if (result) {
-                            result(@{@"textureId": @(textureId), @"width": @([render size].width), @"height": @([render size].height)});
+                            result(@{argumentTextureId: @(textureId), argumentWidth: @([render size].width), argumentHeight: @([render size].height)});
                         }
                     }
                     [reuseItem.mutableResultsArray removeAllObjects];

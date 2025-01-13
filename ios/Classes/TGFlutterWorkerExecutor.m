@@ -30,7 +30,7 @@ static TGFlutterWorkerExecutor *_instance = nil;
     if (self) {
         _enableMultiThread = YES; // 默认启用并行队列
         _concurrentQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
-        _serialQueue = dispatch_queue_create("com.example.serialQueue", DISPATCH_QUEUE_SERIAL); // todo 线程名确认 dispatch_get_main_queue()
+        _serialQueue = dispatch_queue_create("com.pag.serialQueue", DISPATCH_QUEUE_SERIAL);
     }
     return self;
 }
