@@ -7,6 +7,7 @@
 //
 
 #import "TGFlutterPagRender.h"
+#import "TGFlutterWorkerExecutor.h"
 #import <OpenGLES/EAGL.h>
 #import <OpenGLES/ES2/gl.h>
 #import <OpenGLES/ES2/glext.h>
@@ -84,27 +85,46 @@ static int64_t GetCurrentTimeUS() {
     return target;
 }
 
-- (instancetype)initWithPagData:(NSData*)pagData
+- (instancetype)init
+{
+    if (self = [super init]) {
+        _textureId = @-1;
+    }
+    return self;
+}
+
+- (void)setUpWithPagData:(NSData*)pagData
                        progress:(double)initProgress
             frameUpdateCallback:(FrameUpdateCallback)frameUpdateCallback
                   eventCallback:(PAGEventCallback)eventCallback
 {
-    if (self = [super init]) {
-        _frameUpdateCallback = frameUpdateCallback;
-        _eventCallback = eventCallback;
-        _initProgress = initProgress;
-        if(pagData){
-            _pagFile = [PAGFile Load:pagData.bytes size:pagData.length];
-            _player = [[PAGPlayer alloc] init];
-            [_player setComposition:_pagFile];
-            _surface = [PAGSurface MakeFromGPU:CGSizeMake(_pagFile.width, _pagFile.height)];
-            [_player setSurface:_surface];
-            [_player setProgress:initProgress];
-            [_player flush];
-            _frameUpdateCallback();
+    _frameUpdateCallback = frameUpdateCallback;
+    _eventCallback = eventCallback;
+    _initProgress = initProgress;
+    if(pagData){
+        if ([[TGFlutterWorkerExecutor sharedInstance] enableMultiThread]) {
+            // 防止setup和release、dealloc并行争抢
+            @synchronized(self) {
+                [self setUpPlayerWithPagData:pagData];
+            }
+        } else{
+            [self setUpPlayerWithPagData:pagData];
         }
     }
-    return self;
+}
+
+- (void) setUpPlayerWithPagData:(NSData*)pagData
+{
+    _pagFile = [PAGFile Load:pagData.bytes size:pagData.length];
+    if (!_player) {
+        _player = [[PAGPlayer alloc] init];
+    }
+    [_player setComposition:_pagFile];
+    _surface = [PAGSurface MakeOffscreen:CGSizeMake(_pagFile.width, _pagFile.height)];
+    [_player setSurface:_surface];
+    [_player setProgress: _initProgress];
+    [_player flush];
+    _frameUpdateCallback();
 }
 
 - (void)startRender
@@ -169,10 +189,24 @@ static int64_t GetCurrentTimeUS() {
     _frameUpdateCallback();
 }
 
-- (void)releaseRender{
+- (void)invalidateDisplayLink {
     if (_displayLink) {
         [_displayLink invalidate];
         _displayLink = nil;
+    }
+}
+
+- (void)clearSurface {
+    if (_surface) {
+        if ([[TGFlutterWorkerExecutor sharedInstance] enableMultiThread]) {
+            @synchronized(self) {
+                [_surface freeCache];
+                [_surface clearAll];
+            }
+        } else{
+            [_surface freeCache];
+            [_surface clearAll];
+        }
     }
 }
 

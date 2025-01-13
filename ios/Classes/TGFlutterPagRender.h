@@ -28,7 +28,11 @@ typedef void(^PAGEventCallback)(NSString *);
 ///当前pag的size
 @property(nonatomic, readonly) CGSize size;
 
-- (instancetype)initWithPagData:(NSData*)pagData
+@property (nonatomic, strong)NSNumber* textureId;
+
+- (instancetype)init;
+
+- (void)setUpWithPagData:(NSData*)pagData
                        progress:(double)initProgress
             frameUpdateCallback:(FrameUpdateCallback)frameUpdateCallback
                   eventCallback:(PAGEventCallback)eventCallback;
@@ -39,7 +43,9 @@ typedef void(^PAGEventCallback)(NSString *);
 
 - (void)pauseRender;
 
-- (void)releaseRender;
+- (void)invalidateDisplayLink;
+
+- (void)clearSurface;
 
 - (void)setProgress:(double)progress;
 
