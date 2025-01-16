@@ -185,7 +185,7 @@ class PAGViewState extends State<PAGView> {
   static const String _eventFrameReady = 'onFrameReady';
 
   // 回调监听
-  static MethodChannel _channel = (const MethodChannel('flutter_pag_plugin')
+  static MethodChannel get _channel => (const MethodChannel('flutter_pag_plugin')
     ..setMethodCallHandler((result) {
       if (result.method == _playCallback) {
         final map = callbackHandlers[result.arguments[_argumentTextureId]];
