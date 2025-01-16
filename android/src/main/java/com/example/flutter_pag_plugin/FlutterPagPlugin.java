@@ -14,6 +14,7 @@ import org.libpag.PAGFile;
 import org.libpag.PAGLayer;
 import org.libpag.PAGSurface;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -95,6 +96,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     final static String _argumentReuseKey = "reuseKey";
     final static String _argumentViewId = "viewId";
     final static String _argumentReuseEnabled = "reuseEnabled";
+    final static String _argumentFrameAvailable = "frameAvailable";
 
     // 回调
     final static String _playCallback = "PAGCallback";
@@ -103,10 +105,11 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     final static String _eventCancel = "onAnimationCancel";
     final static String _eventRepeat = "onAnimationRepeat";
     final static String _eventUpdate = "onAnimationUpdate";
+    final static String _eventFrameReady = "onFrameReady";
 
     private boolean useCache = true;
     private int maxFreePoolSize = 10;
-    private boolean reuseEnabled = true;
+    private boolean reuseEnabled = false;  //flutter3.16有渲染bug，无法启用，且暂时与frameReady策略冲突
 
     public FlutterPagPlugin() {
     }
@@ -324,6 +327,32 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             currentId = String.valueOf(entry.id());
             entryMap.put(String.valueOf(entry.id()), entry);
             SurfaceTexture surfaceTexture = entry.surfaceTexture();
+            SurfaceTexture.OnFrameAvailableListener listener = null;
+            try {
+                Class<?> surfaceTextureClass = entry.getClass();
+                Field handlerField = surfaceTextureClass.getDeclaredField("onFrameListener");
+                handlerField.setAccessible(true);
+                listener = (SurfaceTexture.OnFrameAvailableListener) handlerField.get(entry);
+            } catch (NoSuchFieldException | IllegalAccessException e) {
+                e.printStackTrace();
+            }
+            SurfaceTexture.OnFrameAvailableListener finalH = listener;
+            surfaceTexture.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
+                private boolean isFirstCall = true;
+                @Override
+                public void onFrameAvailable(SurfaceTexture surfaceTexture) {
+                    if (finalH != null) {
+                        finalH.onFrameAvailable(surfaceTexture);
+                    }
+
+                    //该listener会不断回调，给flutter的通信只需要一次，避免冗余调用
+                    if (!isFirstCall) return;
+                    isFirstCall = false;
+                    handler.post(() -> {
+                        notifyFrameReady(entry.id(), viewId);
+                    });
+                }
+            });
 
             final Surface surface = new Surface(surfaceTexture);
             final PAGSurface pagSurface = PAGSurface.FromSurface(surface);
@@ -342,6 +371,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 error(call, result, "-1102", "PagPlayer异常！", null);
                 return;
             }
+            notifyFrameReady(Long.parseLong(currentId), viewId);
         }
 
         WorkThreadExecutor.getInstance().post(() -> {
@@ -383,6 +413,14 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         });
 
 
+    }
+
+    private void notifyFrameReady(long textureId, int viewId) {
+        final HashMap<String, Object> arguments = new HashMap<>();
+        arguments.put(FlutterPagPlugin._argumentTextureId, textureId);
+        arguments.put(FlutterPagPlugin._argumentViewId, viewId);
+        arguments.put(FlutterPagPlugin._argumentEvent, _eventFrameReady);
+        channel.invokeMethod(FlutterPagPlugin._playCallback, arguments);
     }
 
     void error(MethodCall call, Result result, @NonNull String errorCode, @Nullable String errorMessage, @Nullable Object errorDetails) {
@@ -435,6 +473,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         final String reuseKey = call.argument(_argumentReuseKey);
         final int viewId = call.argument(_argumentViewId);
         final int textureId = call.argument(_argumentTextureId);
+        final boolean frameAvailable = call.argument(_argumentFrameAvailable); //标记surface是否正常，不正常不走缓存
 
 
         if (reuseEnabled && reuse && reuseKey != null && !reuseKey.isEmpty()) {
@@ -454,7 +493,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
         if (textureId < 0) return;
 
-        if (useCache && preFreeEntryPool.size() < maxFreePoolSize) {
+        if (useCache && preFreeEntryPool.size() < maxFreePoolSize && frameAvailable) {
             FlutterPagPlayer flutterPagPlayer = layerMap.get(getTextureId(call));
             preFreeEntryPool.add(textureId + "");
             if (flutterPagPlayer != null) {

@@ -140,20 +140,18 @@ public class FlutterPagPlayer extends PAGPlayer {
         animator.cancel();
         animator.removeAllUpdateListeners();
         animator.removeAllListeners();
-        WorkThreadExecutor.getInstance().post(() -> {
-            if (WorkThreadExecutor.multiThread) {
-                synchronized (this) {
-                    if (getSurface() != null) getSurface().release();
-                    surfaceTexture.release();
-                    surfaceTexture = null;
-                }
-            } else {
+        //此处如果放入子线程处理，会打印gl的错误日志，挪到主线程
+        if (WorkThreadExecutor.multiThread) {
+            synchronized (this) {
                 if (getSurface() != null) getSurface().release();
                 surfaceTexture.release();
                 surfaceTexture = null;
             }
-
-        });
+        } else {
+            if (getSurface() != null) getSurface().release();
+            surfaceTexture.release();
+            surfaceTexture = null;
+        }
         isRelease = true;
     }
 
