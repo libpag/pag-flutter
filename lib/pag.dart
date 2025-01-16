@@ -44,7 +44,7 @@ class PAGView extends StatefulWidget {
   /// Notifies the repetition of the animation.
   final PAGCallback? onAnimationRepeat;
 
-  final bool reuse;
+  bool reuse;
 
   final String? reuseKey;
 
@@ -54,7 +54,7 @@ class PAGView extends StatefulWidget {
   static const int REPEAT_COUNT_LOOP = -1; //无限循环
   static const int REPEAT_COUNT_DEFAULT = 1; //默认仅播放一次
 
-  const PAGView.network(
+  PAGView.network(
     this.url, {
     this.width,
     this.height,
@@ -76,7 +76,7 @@ class PAGView extends StatefulWidget {
         this.reuseKey = reuseKey ?? url,
         super(key: key);
 
-  const PAGView.asset(
+  PAGView.asset(
     this.assetName, {
     this.width,
     this.height,
@@ -98,7 +98,7 @@ class PAGView extends StatefulWidget {
         this.reuseKey = reuseKey ?? (package != null ? '$package$assetName' : assetName),
         super(key: key);
 
-  const PAGView.bytes(
+  PAGView.bytes(
     this.bytesData, {
     this.width,
     this.height,
