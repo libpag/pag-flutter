@@ -21,8 +21,6 @@
 
 @property(nonatomic, strong)PAGSurface *surface;
 
-@property(nonatomic, strong)PAGPlayer* player;
-
 @property(nonatomic, strong)PAGFile* pagFile;
 
 @property(nonatomic, assign)double initProgress;
