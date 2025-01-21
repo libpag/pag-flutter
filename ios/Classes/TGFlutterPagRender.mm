@@ -103,7 +103,9 @@ static int64_t GetCurrentTimeUS() {
         if ([[TGFlutterWorkerExecutor sharedInstance] enableMultiThread]) {
             // 防止setup和release、dealloc并行争抢
             @synchronized(self) {
-                [self setUpPlayerWithPagData:pagData];
+                if(self){
+                    [self setUpPlayerWithPagData:pagData];
+                }
             }
         } else{
             [self setUpPlayerWithPagData:pagData];
@@ -198,8 +200,10 @@ static int64_t GetCurrentTimeUS() {
     if (_surface) {
         if ([[TGFlutterWorkerExecutor sharedInstance] enableMultiThread]) {
             @synchronized(self) {
-                [_surface freeCache];
-                [_surface clearAll];
+                if (_surface){
+                    [_surface freeCache];
+                    [_surface clearAll];
+                }
             }
         } else{
             [_surface freeCache];
@@ -212,7 +216,7 @@ static int64_t GetCurrentTimeUS() {
     _frameUpdateCallback = nil;
     _eventCallback = nil;
     _surface = nil;
-    self.pagFile = nil;
-    self.player = nil;
+    _pagFile = nil;
+    _player = nil;
 }
 @end
