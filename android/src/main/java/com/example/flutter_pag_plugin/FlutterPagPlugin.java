@@ -377,7 +377,6 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         WorkThreadExecutor.getInstance().post(() -> {
             pagPlayer.updateBufferSize(composition.width(), composition.height());
             pagPlayer.init(composition, repeatCount, initProgress, channel, Long.parseLong(currentId));
-            pagPlayer.flush();
 
             handler.post(new Runnable() {
                 @Override
