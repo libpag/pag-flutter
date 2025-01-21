@@ -105,15 +105,8 @@ static NSString *const eventUpdate = @"onAnimationUpdate";
         _renderMap = [[NSMutableDictionary alloc] init];
         _reuseMap = [[NSMutableDictionary alloc] init];
         _enableReuse = YES;
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_appDidReceiveMemoryWarningNotification) name:UIApplicationDidReceiveMemoryWarningNotification object:nil];
     }
     return self;
-}
-
-- (void)_appDidReceiveMemoryWarningNotification {
-    for (TGFlutterPagRender *render in [_renderMap allValues]){
-        [[render player] setSurface: nil];
-    }
 }
 
 + (void)registerWithRegistrar:(NSObject<FlutterPluginRegistrar>*)registrar {

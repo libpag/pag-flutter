@@ -8,7 +8,7 @@
 
 #import <Foundation/Foundation.h>
 #import <Flutter/Flutter.h>
-#import <libpag/PAGPlayer.h>
+
 NS_ASSUME_NONNULL_BEGIN
 
 #define EventStart @"onAnimationStart"
@@ -29,8 +29,6 @@ typedef void(^PAGEventCallback)(NSString *);
 @property(nonatomic, readonly) CGSize size;
 
 @property (nonatomic, strong)NSNumber* textureId;
-
-@property(nonatomic, strong)PAGPlayer* player;
 
 - (instancetype)init;
 
