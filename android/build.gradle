@@ -27,8 +27,18 @@ apply plugin: 'kotlin-android'
 android {
     compileSdkVersion 30
 
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
+
     defaultConfig {
         minSdkVersion 19
+
+        ndk {
+            abiFilters "armeabi-v7a", "arm64-v8a"
+        }
     }
     buildToolsVersion '28.0.3'
     compileOptions {

@@ -4,7 +4,6 @@ import android.content.Context;
 import android.graphics.SurfaceTexture;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 import android.view.Surface;
 
 import androidx.annotation.NonNull;
@@ -42,6 +41,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     /// This local reference serves to register the plugin with the Flutter Engine and unregister it
     /// when the Flutter Engine is detached from the Activity
     private MethodChannel channel;
+    private PagImagePlugin imageChannel;
     TextureRegistry textureRegistry;
     Context context;
     io.flutter.plugin.common.PluginRegistry.Registrar registrar;
@@ -130,6 +130,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         flutterAssets = binding.getFlutterAssets();
         channel = new MethodChannel(binding.getBinaryMessenger(), "flutter_pag_plugin");
         channel.setMethodCallHandler(this);
+        imageChannel = new PagImagePlugin(binding);
         context = binding.getApplicationContext();
         textureRegistry = binding.getTextureRegistry();
         DataLoadHelper.INSTANCE.initDiskCache(context, DataLoadHelper.INSTANCE.DEFAULT_DIS_SIZE);
@@ -565,6 +566,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         resultMap.clear();
         layerMap.clear();
         entryMap.clear();
+        imageChannel.release();
     }
 
     @Override
