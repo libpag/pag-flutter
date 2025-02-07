@@ -47,6 +47,8 @@ typedef void(^PAGEventCallback)(NSString *);
 
 - (void)clearSurface;
 
+- (void)clearPagState;
+
 - (void)setProgress:(double)progress;
 
 - (void)setRepeatCount:(int)repeatCount;
