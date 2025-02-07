@@ -214,6 +214,19 @@ static int64_t GetCurrentTimeUS() {
     }
 }
 
+/// 清除Pagrender时序
+- (void)clearPagState {
+    if ([[TGFlutterWorkerExecutor sharedInstance] enableMultiThread]) {
+        @synchronized(self) {
+            start = -1;
+            _endEvent = NO;
+        }
+    } else{
+        start = -1;
+        _endEvent = NO;
+    }
+}
+
 - (void)dealloc {
     _frameUpdateCallback = nil;
     _eventCallback = nil;

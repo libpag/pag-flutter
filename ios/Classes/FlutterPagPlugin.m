@@ -191,6 +191,7 @@ static NSString *const eventUpdate = @"onAnimationUpdate";
         [[TGFlutterWorkerExecutor sharedInstance] post:^(){
             if (!render) return;
             [render clearSurface];
+            [render clearPagState];
             dispatch_async(dispatch_get_main_queue(), ^(){
                 [weakSelf.freeEntryPool addObject:textureId];
                 result(@"");
@@ -544,7 +545,7 @@ static NSString *const eventUpdate = @"onAnimationUpdate";
             });
         } eventCallback:^(NSString *event) {
             dispatch_async(dispatch_get_main_queue(), ^(){
-                [weakSelf.channel invokeMethod:playCallback arguments:@{argumentViewId:@(textureId), argumentPagEvent:event}];
+                [weakSelf.channel invokeMethod:playCallback arguments:@{argumentTextureId:@(textureId), argumentPagEvent:event}];
             });
         }];
         dispatch_async(dispatch_get_main_queue(), ^(){
