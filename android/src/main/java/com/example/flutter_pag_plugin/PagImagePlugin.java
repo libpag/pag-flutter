@@ -19,6 +19,7 @@ import org.libpag.PAGFile;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
 import io.flutter.plugin.common.MethodCall;
@@ -31,6 +32,7 @@ public class PagImagePlugin implements MethodChannel.MethodCallHandler {
     private Context context;
     FlutterPlugin.FlutterAssets flutterAssets;
     private Handler handler = new Handler(Looper.getMainLooper());
+    private Map<Integer, PAGImageProcessor> processorMap = new HashMap<>();
 
     public PagImagePlugin(@NonNull FlutterPlugin.FlutterPluginBinding binding) {
         channel = new MethodChannel(binding.getBinaryMessenger(), "flutter_pag_image_widget");
@@ -47,11 +49,11 @@ public class PagImagePlugin implements MethodChannel.MethodCallHandler {
             case "getImageInfo":
                 PagImageHelper.loadPag(call, result);
                 break;
-            case "releaseImage":
-                result.success(null);
+            case "releasePagImage":
+                releasePag(call, result);
                 break;
             case "loadPagImage":
-                initPag(call, result);
+                loadPag(call, result);
 //                result.success(null);
                 break;
             default:
@@ -61,16 +63,49 @@ public class PagImagePlugin implements MethodChannel.MethodCallHandler {
     }
 
     private void loadPag(@NonNull MethodCall call, @NonNull MethodChannel.Result result) {
-//        String assetName = call.argument(_argumentAssetName);
+        String assetName = call.argument(_argumentAssetName);
 //        byte[] bytes = call.argument(_argumentBytes);
         String url = call.argument(_argumentUrl);
-//        String flutterPackage = call.argument(_argumentPackage);
+        String flutterPackage = call.argument(_argumentPackage);
         int viewId = call.argument(_argumentViewId);
         Log.d("salieri", "loadPag");
+
+        String path = "";
+        if (assetName != null) {
+            String assetKey;
+            if (flutterAssets != null) {
+                if (flutterPackage == null || flutterPackage.isEmpty()) {
+                    assetKey = flutterAssets.getAssetFilePathByName(assetName);
+                } else {
+                    assetKey = flutterAssets.getAssetFilePathByName(assetName, flutterPackage);
+                }
+            } else {
+                assetKey = "";
+            }
+
+            if (assetKey == null) {
+                result.error( "-1100", "asset资源加载错误: " + assetName, null);
+                return;
+            }
+            path = "assets://" + assetKey;
+        } else if (url != null) {
+            path = url;
+        } else {
+            result.error("-1100", "未添加资源", null);
+        }
         PAGImageProcessor processor = new PAGImageProcessor(context, this);
-        processor.update(viewId, url);
+        processor.update(viewId, path);
         processor.setRepeatCount(-1);
         processor.play();
+        processorMap.put(viewId, processor);
+        result.success(null);
+    }
+
+    private void releasePag(final MethodCall call, final MethodChannel.Result result) {
+        int viewId = call.argument(_argumentViewId);
+        PAGImageProcessor processor = processorMap.remove(viewId);
+        if (processor != null) processor.release();
+        result.success(null);
     }
 
     private void initPagImageProcessor(PAGComposition composition, int viewId, MethodChannel.Result result) {
@@ -79,12 +114,11 @@ public class PagImagePlugin implements MethodChannel.MethodCallHandler {
 //        processor.setRepeatCount(-1);
 //        processor.play();
 
-        for (int i = 0; i <= 0; i++) {
-            PAGImageProcessor processor = new PAGImageProcessor(context, this);
-            processor.update(viewId, composition);
-            processor.setRepeatCount(-1);
-            processor.play();
-        }
+        PAGImageProcessor processor = new PAGImageProcessor(context, this);
+        processor.update(viewId, composition);
+        processor.setRepeatCount(-1);
+        processor.play();  //todo: auto play, repeatCount, etc
+        processorMap.put(viewId, processor);
         result.success(null);
     }
 

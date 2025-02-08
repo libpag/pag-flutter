@@ -504,7 +504,6 @@ public class PAGImageProcessor implements ValueAnimator.AnimatorUpdateListener, 
 //        } else {
 //            assetKey = "";
 //        }
-        //todo: 目前仅支持网络图片
         if (path.startsWith("assets://")) {
             composition = PAGFile.Load(context.getAssets(), path.substring(9));
         } else {
@@ -537,9 +536,9 @@ public class PAGImageProcessor implements ValueAnimator.AnimatorUpdateListener, 
         height = composition.height();
 //        animator.setProgress(_composition == null ? 0 : _composition.getProgress());
         animator.setCurrentPlayTime(0);
-        animationDuration = _composition == null ? 0 : _composition.duration();
+        animationDuration = composition.duration();
         Log.d("salieri", "ani: " + animationDuration);
-        animator.setDuration(_composition.duration() / 1000);
+        animator.setDuration(composition.duration() / 1000);
 
         initDecoderInfo();
 
@@ -838,6 +837,16 @@ public class PAGImageProcessor implements ValueAnimator.AnimatorUpdateListener, 
         for (PAGImageViewListener listener : arrayList) {
             listener.onAnimationRepeat(this);
         }
+    }
+
+    public void release() {
+        if (animator != null) {
+            animator.cancel();
+            animator.removeAllListeners();
+            animator.removeAllUpdateListeners();
+            animator = null;
+        }
+        renderBitmap = null;
     }
 
 //    static {

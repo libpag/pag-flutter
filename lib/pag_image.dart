@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pag/pag.dart';
@@ -44,11 +46,9 @@ class PagImageChannel {
     return PagImageInfo(info);
   }
 
-  static void release(String url, double width, double height) async {
-    await _channel.invokeMethod("releaseImage", {
-      "url": url,
-      "width": width.floor(),
-      "height": height.floor(),
+  static void releasePag(int viewId) async {
+    await _channel.invokeMethod("releasePagImage", {
+      "viewId": viewId,
     });
   }
 }
@@ -187,6 +187,7 @@ class PAGImageViewState extends State<PAGImageView> {
   @override
   void dispose() {
     super.dispose();
+    PagImageChannel.releasePag(instanceId);
     print('salieri: dispose');
   }
 
