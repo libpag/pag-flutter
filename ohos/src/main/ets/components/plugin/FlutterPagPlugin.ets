@@ -311,6 +311,7 @@ export default class FlutterPagPlugin implements FlutterPlugin, MethodCallHandle
     if (pagPlayer != null) {
       let progress = call.argument(Constants._argumentProgress) as number;
       pagPlayer.setProgress(progress);
+      pagPlayer.flush();
     }
   }
 

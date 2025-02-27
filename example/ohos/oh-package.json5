@@ -15,7 +15,6 @@
   "overrides": {
     "@ohos/flutter_ohos": "file:./har/flutter.har",
     "@ohos/flutter_module": "file:./entry",
-    "pag": "file:../../ohos",
-    "@tencent/libpag": "file:../../../libpag/ohos/libpag"
+    "pag": "file:./har/pag.har"
   }
 }
