@@ -219,8 +219,9 @@ class PAGViewState extends State<PAGView> {
   }
 
   bool _isAvailable() {
-    if (!checkAvailable || !Platform.isAndroid) return true;
-    return _frameReady;
+    return true;
+    // if (!checkAvailable || !Platform.isAndroid) return true;
+    // return _frameReady;
   }
 
   // 初始化
