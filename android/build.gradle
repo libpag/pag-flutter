@@ -26,7 +26,7 @@ apply plugin: 'kotlin-android'
 
 android {
     compileSdkVersion 34
-
+    namespace 'com.example.flutter_pag_plugin'
     defaultConfig {
         minSdkVersion 19
     }
