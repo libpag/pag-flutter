@@ -27,8 +27,6 @@ import io.flutter.plugin.common.MethodCall;
 import io.flutter.plugin.common.MethodChannel;
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler;
 import io.flutter.plugin.common.MethodChannel.Result;
-import io.flutter.plugin.common.PluginRegistry;
-import io.flutter.view.FlutterNativeView;
 import io.flutter.view.TextureRegistry;
 import kotlin.Unit;
 import kotlin.jvm.functions.Function1;
@@ -44,7 +42,6 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     private MethodChannel channel;
     TextureRegistry textureRegistry;
     Context context;
-    io.flutter.plugin.common.PluginRegistry.Registrar registrar;
     FlutterPlugin.FlutterAssets flutterAssets;
     private Handler handler = new Handler(Looper.getMainLooper());
 
@@ -52,11 +49,11 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     public static List<FlutterPagPlugin> pluginList = new ArrayList<FlutterPagPlugin>();
 
     private final HashMap<String, FlutterPagPlayer> layerMap = new HashMap<String, FlutterPagPlayer>();
-    private final HashMap<String, TextureRegistry.SurfaceTextureEntry> entryMap = new HashMap<String, TextureRegistry.SurfaceTextureEntry>();
+    private final HashMap<String, TextureRegistry.SurfaceProducer> entryMap = new HashMap<String, TextureRegistry.SurfaceProducer>();
     //用于记录当前缓存可用的entry id
-    private final LinkedList<String>  freeEntryPool = new LinkedList<>();
+    private final LinkedList<String> freeEntryPool = new LinkedList<>();
     //由于进入缓存池之前的entry清理是异步的，先放入此pool以避免超过缓存上限
-    private final LinkedList<String>  preFreeEntryPool = new LinkedList<>();
+    private final LinkedList<String> preFreeEntryPool = new LinkedList<>();
     private final HashMap<String, ReuseItem> reuseMap = new HashMap<>();
     private final HashMap<String, List<Result>> resultMap = new HashMap<>();
 
@@ -114,14 +111,6 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     public FlutterPagPlugin() {
     }
 
-    public FlutterPagPlugin(io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
-        pluginList.add(this);
-        this.registrar = registrar;
-        textureRegistry = registrar.textures();
-        context = registrar.context();
-        DataLoadHelper.INSTANCE.initDiskCache(context, DataLoadHelper.INSTANCE.DEFAULT_DIS_SIZE);
-    }
-
     @Override
     public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
         if (!pluginList.contains(this)) {
@@ -135,17 +124,6 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         DataLoadHelper.INSTANCE.initDiskCache(context, DataLoadHelper.INSTANCE.DEFAULT_DIS_SIZE);
     }
 
-    public static void registerWith(io.flutter.plugin.common.PluginRegistry.Registrar registrar) {
-        final FlutterPagPlugin plugin = new FlutterPagPlugin(registrar);
-        registrar.addViewDestroyListener(new PluginRegistry.ViewDestroyListener() {
-            @Override
-            public boolean onViewDestroy(FlutterNativeView flutterNativeView) {
-                plugin.onDestroy();
-                pluginList.remove(this);
-                return false; // We are not interested in assuming ownership of the NativeView.
-            }
-        });
-    }
 
     @Override
     public void onMethodCall(@NonNull MethodCall call, @NonNull Result result) {
@@ -235,7 +213,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 callback.put(_argumentHeight, (double) reuseItem.height);
                 result.success(callback);
                 return;
-            } else if (reuseItem != null){
+            } else if (reuseItem != null) {
                 reuseItem.usingViewSet.add(viewId);
                 List<Result> list = resultMap.get(reuseKey);
                 if (list == null) {
@@ -256,13 +234,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             initPagPlayerAndCallback(PAGFile.Load(bytes), call, result);
         } else if (assetName != null) {
             String assetKey;
-            if (registrar != null) {
-                if (flutterPackage == null || flutterPackage.isEmpty()) {
-                    assetKey = registrar.lookupKeyForAsset(assetName);
-                } else {
-                    assetKey = registrar.lookupKeyForAsset(assetName, flutterPackage);
-                }
-            } else if (flutterAssets != null) {
+            if (flutterAssets != null) {
                 if (flutterPackage == null || flutterPackage.isEmpty()) {
                     assetKey = flutterAssets.getAssetFilePathByName(assetName);
                 } else {
@@ -319,48 +291,18 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         final String reuseKey = call.argument(_argumentReuseKey);
         final int viewId = call.argument(_argumentViewId);
         final FlutterPagPlayer pagPlayer;
+        final TextureRegistry.SurfaceProducer entry;
         final String currentId;
 
         if (freeEntryPool.isEmpty() || !useCache) {
             pagPlayer = new FlutterPagPlayer();
-            final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
+            entry = textureRegistry.createSurfaceProducer();
             currentId = String.valueOf(entry.id());
             entryMap.put(String.valueOf(entry.id()), entry);
-            SurfaceTexture surfaceTexture = entry.surfaceTexture();
-            SurfaceTexture.OnFrameAvailableListener listener = null;
-            try {
-                Class<?> surfaceTextureClass = entry.getClass();
-                Field handlerField = surfaceTextureClass.getDeclaredField("onFrameListener");
-                handlerField.setAccessible(true);
-                listener = (SurfaceTexture.OnFrameAvailableListener) handlerField.get(entry);
-            } catch (NoSuchFieldException | IllegalAccessException e) {
-                e.printStackTrace();
-            }
-            SurfaceTexture.OnFrameAvailableListener finalH = listener;
-            surfaceTexture.setOnFrameAvailableListener(new SurfaceTexture.OnFrameAvailableListener() {
-                private boolean isFirstCall = true;
-                @Override
-                public void onFrameAvailable(SurfaceTexture surfaceTexture) {
-                    if (finalH != null) {
-                        finalH.onFrameAvailable(surfaceTexture);
-                    }
-
-                    //该listener会不断回调，给flutter的通信只需要一次，避免冗余调用
-                    if (!isFirstCall) return;
-                    isFirstCall = false;
-                    handler.post(() -> {
-                        notifyFrameReady(entry.id(), viewId);
-                    });
-                }
-            });
-
-            final Surface surface = new Surface(surfaceTexture);
-            final PAGSurface pagSurface = PAGSurface.FromSurface(surface);
-            pagPlayer.setSurface(pagSurface);
-            pagPlayer.setSurfaceTexture(surfaceTexture);
             layerMap.put(String.valueOf(entry.id()), pagPlayer);
         } else {
             currentId = freeEntryPool.removeFirst();
+            entry = entryMap.get(currentId);
             preFreeEntryPool.remove(currentId);
             pagPlayer = layerMap.get(currentId);
             if (pagPlayer == null) {
@@ -371,16 +313,23 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 error(call, result, "-1102", "PagPlayer异常！", null);
                 return;
             }
-            notifyFrameReady(Long.parseLong(currentId), viewId);
+        }
+        if (entry != null) {
+            entry.setSize(composition.width(), composition.height());
+            Surface surface = entry.getSurface();
+            final PAGSurface pagSurface = PAGSurface.FromSurface(surface);
+            pagPlayer.setSurface(pagSurface);
         }
 
         WorkThreadExecutor.getInstance().post(() -> {
-            pagPlayer.updateBufferSize(composition.width(), composition.height());
+            pagPlayer.updateBufferSize();
             pagPlayer.init(composition, repeatCount, initProgress, channel, Long.parseLong(currentId));
 
             handler.post(new Runnable() {
                 @Override
                 public void run() {
+                    notifyFrameReady(Long.parseLong(currentId), viewId);
+
                     if (autoPlay) {
                         pagPlayer.start();
                     }
@@ -477,7 +426,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
         if (reuseEnabled && reuse && reuseKey != null && !reuseKey.isEmpty()) {
             ReuseItem reuseItem = reuseMap.get(reuseKey);
-            if (reuseItem != null && reuseItem.textureId == textureId ) {
+            if (reuseItem != null && reuseItem.textureId == textureId) {
                 reuseItem.usingViewSet.remove(viewId);
                 if (reuseItem.usingViewSet.isEmpty()) {
                     //如果remove后为空，则该texture已经无flutter view使用，走清理
@@ -511,7 +460,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 flutterPagPlayer.release();
             }
 
-            TextureRegistry.SurfaceTextureEntry entry = entryMap.remove(getTextureId(call));
+            TextureRegistry.SurfaceProducer entry = entryMap.remove(getTextureId(call));
             if (entry != null) {
                 entry.release();
             }
@@ -556,7 +505,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         for (FlutterPagPlayer pagPlayer : layerMap.values()) {
             pagPlayer.release();
         }
-        for (TextureRegistry.SurfaceTextureEntry entry : entryMap.values()) {
+        for (TextureRegistry.SurfaceProducer entry : entryMap.values()) {
             entry.release();
         }
         freeEntryPool.clear();
@@ -570,6 +519,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     @Override
     public void onDetachedFromEngine(@NonNull FlutterPluginBinding binding) {
         onDestroy();
+        pluginList.remove(this);
     }
 
     public static class ReuseItem {
@@ -586,7 +536,8 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             init = true;
         }
 
-        public ReuseItem(){}
+        public ReuseItem() {
+        }
 
         public void init(long textureId, int width, int height) {
             this.textureId = textureId;
