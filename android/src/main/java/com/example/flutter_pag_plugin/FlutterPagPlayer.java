@@ -22,7 +22,6 @@ public class FlutterPagPlayer extends PAGPlayer {
     private long currentPlayTime = 0L;
     private double progress = 0;
     private double initProgress = 0;
-    private SurfaceTexture surfaceTexture;
 
     private MethodChannel channel;
     private long textureId;
@@ -61,7 +60,7 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     private boolean valid() {
-        return getSurface() != null && surfaceTexture != null;
+        return getSurface() != null;
     }
 
 
@@ -92,28 +91,42 @@ public class FlutterPagPlayer extends PAGPlayer {
         setProgressValue(initProgress);
     }
 
-    @Override
-    public void setSurface(PAGSurface pagSurface) {
-        super.setSurface(pagSurface);
-    }
+   @Override
+   public void setSurface(PAGSurface pagSurface) {
+       if (WorkThreadExecutor.multiThread) {
+           synchronized (this) {
+               final PAGSurface oldSurface = getSurface();
+               if (oldSurface != null) {
+                   oldSurface.release();
+               }
+               super.setSurface(pagSurface);
+           }
+       } else {
+           final PAGSurface oldSurface = getSurface();
+           if (oldSurface != null) {
+               oldSurface.release();
+           }
+           super.setSurface(pagSurface);
+       }
+   }
 
-    public void setSurfaceTexture(SurfaceTexture surfaceTexture) {
-        this.surfaceTexture = surfaceTexture;
-    }
-
-    public void updateBufferSize(int width, int height) {
-        if (WorkThreadExecutor.multiThread) {
-            synchronized (this) {
-                surfaceTexture.setDefaultBufferSize(width, height);
-                getSurface().updateSize();
-                getSurface().clearAll();
-            }
-        } else {
-            surfaceTexture.setDefaultBufferSize(width, height);
-            getSurface().updateSize();
-            getSurface().clearAll();
-        }
-    }
+    public void updateBufferSize() {
+       if (WorkThreadExecutor.multiThread) {
+           synchronized (this) {
+               PAGSurface surface = getSurface();
+               if (surface != null) {
+                   surface.updateSize();
+                   surface.clearAll();
+               }
+           }
+       } else {
+           PAGSurface surface = getSurface();
+           if (surface != null) {
+               surface.updateSize();
+               surface.clearAll();
+           }
+       }
+   }
 
     public void clear() {
         if (WorkThreadExecutor.multiThread) {
@@ -151,13 +164,9 @@ public class FlutterPagPlayer extends PAGPlayer {
         if (WorkThreadExecutor.multiThread) {
             synchronized (this) {
                 if (getSurface() != null) getSurface().release();
-                surfaceTexture.release();
-                surfaceTexture = null;
             }
         } else {
             if (getSurface() != null) getSurface().release();
-            surfaceTexture.release();
-            surfaceTexture = null;
         }
         isRelease = true;
     }
