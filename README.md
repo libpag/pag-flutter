@@ -11,8 +11,12 @@ Flutter侧通过PAGView来使用动画
 ### 引用
 ```
 dependencies:
-  pag: 1.0.0
+    pag:
+      git:
+        url: https://github.com/libpag/pag-flutter.git
+        ref: v1.0.9+4
 ```
+flutter3.29+ 版本请依赖 v1.0.9+flutter3.29
 
 Android端混淆文件中配置，避免影响
 ```
