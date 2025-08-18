@@ -25,15 +25,16 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
-    compileSdkVersion 34
+    namespace "com.example.flutter_pag_plugin"
+    compileSdkVersion 35
 
     defaultConfig {
         minSdkVersion 19
     }
     buildToolsVersion '28.0.3'
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
 

@@ -26,7 +26,8 @@ if (flutterVersionName == null) {
 
 
 android {
-    compileSdkVersion 34
+    namespace "com.example.flutter_pag_plugin_example"
+    compileSdkVersion 35
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
@@ -45,8 +46,8 @@ android {
         }
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }
 
