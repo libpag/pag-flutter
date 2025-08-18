@@ -22,7 +22,6 @@ public class FlutterPagPlayer extends PAGPlayer {
     private long currentPlayTime = 0L;
     private double progress = 0;
     private double initProgress = 0;
-    private SurfaceTexture surfaceTexture;
 
     private MethodChannel channel;
     private long textureId;
@@ -61,7 +60,7 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     private boolean valid() {
-        return getSurface() != null && surfaceTexture != null;
+        return getSurface() != null;
     }
 
 
@@ -97,21 +96,22 @@ public class FlutterPagPlayer extends PAGPlayer {
         super.setSurface(pagSurface);
     }
 
-    public void setSurfaceTexture(SurfaceTexture surfaceTexture) {
-        this.surfaceTexture = surfaceTexture;
-    }
 
-    public void updateBufferSize(int width, int height) {
+    public void updateBufferSize() {
         if (WorkThreadExecutor.multiThread) {
             synchronized (this) {
-                surfaceTexture.setDefaultBufferSize(width, height);
-                getSurface().updateSize();
-                getSurface().clearAll();
+                PAGSurface surface = getSurface();
+                if (surface != null) {
+                    surface.updateSize();
+                    surface.clearAll();
+                }
             }
         } else {
-            surfaceTexture.setDefaultBufferSize(width, height);
-            getSurface().updateSize();
-            getSurface().clearAll();
+            PAGSurface surface = getSurface();
+            if (surface != null) {
+                surface.updateSize();
+                surface.clearAll();
+            }
         }
     }
 
@@ -151,13 +151,11 @@ public class FlutterPagPlayer extends PAGPlayer {
         if (WorkThreadExecutor.multiThread) {
             synchronized (this) {
                 if (getSurface() != null) getSurface().release();
-                surfaceTexture.release();
-                surfaceTexture = null;
+
             }
         } else {
             if (getSurface() != null) getSurface().release();
-            surfaceTexture.release();
-            surfaceTexture = null;
+
         }
         isRelease = true;
     }

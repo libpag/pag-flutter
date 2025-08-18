@@ -50,7 +50,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     public static List<FlutterPagPlugin> pluginList = new ArrayList<FlutterPagPlugin>();
 
     private final HashMap<String, FlutterPagPlayer> layerMap = new HashMap<String, FlutterPagPlayer>();
-    private final HashMap<String, TextureRegistry.SurfaceTextureEntry> entryMap = new HashMap<String, TextureRegistry.SurfaceTextureEntry>();
+    private final HashMap<String, TextureRegistry.SurfaceProducer> entryMap = new HashMap<>();
     //用于记录当前缓存可用的entry id
     private final LinkedList<String>  freeEntryPool = new LinkedList<>();
     //由于进入缓存池之前的entry清理是异步的，先放入此pool以避免超过缓存上限
@@ -105,7 +105,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     final static String _eventUpdate = "onAnimationUpdate";
     final static String _eventFrameReady = "onFrameReady";
 
-    private boolean useCache = true;
+    private boolean useCache = false;
     private int maxFreePoolSize = 10;
     private boolean reuseEnabled = false;  //flutter3.16有渲染bug，无法启用，且暂时与frameReady策略冲突
 
@@ -312,13 +312,13 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         final int viewId = call.argument(_argumentViewId);
         final FlutterPagPlayer pagPlayer;
         final String currentId;
+        final TextureRegistry.SurfaceProducer entry;
 
         if (freeEntryPool.isEmpty() || !useCache) {
             pagPlayer = new FlutterPagPlayer();
-            final TextureRegistry.SurfaceTextureEntry entry = textureRegistry.createSurfaceTexture();
+            entry = textureRegistry.createSurfaceProducer();
             currentId = String.valueOf(entry.id());
             entryMap.put(String.valueOf(entry.id()), entry);
-            SurfaceTexture surfaceTexture = entry.surfaceTexture();
 //            SurfaceTexture.OnFrameAvailableListener listener = null;
 //            try {
 //                Class<?> surfaceTextureClass = entry.getClass();
@@ -346,13 +346,10 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 //                }
 //            });
 
-            final Surface surface = new Surface(surfaceTexture);
-            final PAGSurface pagSurface = PAGSurface.FromSurface(surface);
-            pagPlayer.setSurface(pagSurface);
-            pagPlayer.setSurfaceTexture(surfaceTexture);
             layerMap.put(String.valueOf(entry.id()), pagPlayer);
         } else {
             currentId = freeEntryPool.removeFirst();
+            entry = entryMap.get(currentId);
             preFreeEntryPool.remove(currentId);
             pagPlayer = layerMap.get(currentId);
             if (pagPlayer == null) {
@@ -366,13 +363,20 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             notifyFrameReady(Long.parseLong(currentId), viewId);
         }
 
+        if (entry != null) {
+            entry.setSize(composition.width(), composition.height());
+            Surface surface = entry.getSurface();
+            final PAGSurface pagSurface = PAGSurface.FromSurface(surface);
+            pagPlayer.setSurface(pagSurface);
+        }
         WorkThreadExecutor.getInstance().post(() -> {
-            pagPlayer.updateBufferSize(composition.width(), composition.height());
             pagPlayer.init(composition, repeatCount, initProgress, channel, Long.parseLong(currentId));
+            pagPlayer.updateBufferSize();
 
             handler.post(new Runnable() {
                 @Override
                 public void run() {
+                    notifyFrameReady(Long.parseLong(currentId), viewId);
                     if (autoPlay) {
                         pagPlayer.start();
                     }
@@ -503,7 +507,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 flutterPagPlayer.release();
             }
 
-            TextureRegistry.SurfaceTextureEntry entry = entryMap.remove(getTextureId(call));
+            TextureRegistry.SurfaceProducer entry = entryMap.remove(getTextureId(call));
             if (entry != null) {
                 entry.release();
             }
@@ -548,7 +552,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         for (FlutterPagPlayer pagPlayer : layerMap.values()) {
             pagPlayer.release();
         }
-        for (TextureRegistry.SurfaceTextureEntry entry : entryMap.values()) {
+        for (TextureRegistry.SurfaceProducer entry : entryMap.values()) {
             entry.release();
         }
         freeEntryPool.clear();

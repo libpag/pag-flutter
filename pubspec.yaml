@@ -1,10 +1,10 @@
 name: pag
 description: PAG for flutter
-version: 1.0.9
+version: 1.0.9+flutter3.29
 homepage: https://github.com/libpag/pag-flutter
 
 environment:
-  sdk: ">=2.12.0 <3.0.0"
+  sdk: ">=2.12.0 <4.0.0"
   flutter: ">=1.20.0"
 
 dependencies:
