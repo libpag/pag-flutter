@@ -25,6 +25,7 @@ apply plugin: 'com.android.library'
 apply plugin: 'kotlin-android'
 
 android {
+    namespace 'com.agl.pag'
     compileSdkVersion 30
 
     defaultConfig {
@@ -35,10 +36,14 @@ android {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
 }
 
 
 dependencies {
-    implementation "com.tencent.tav:libpag:4.3.68"
+    implementation "com.tencent.tav:libpag:4.5.42"
     implementation 'com.jakewharton:disklrucache:2.0.2'
 }

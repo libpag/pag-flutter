@@ -1,10 +1,8 @@
 package com.example.flutter_pag_plugin;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ValueAnimator;
 import android.graphics.SurfaceTexture;
-import android.view.animation.LinearInterpolator;
+import android.util.Log;
+import android.view.Choreographer;
 
 import org.libpag.PAGFile;
 import org.libpag.PAGPlayer;
@@ -17,29 +15,52 @@ import io.flutter.plugin.common.MethodChannel;
 
 public class FlutterPagPlayer extends PAGPlayer {
 
-    private final ValueAnimator animator = ValueAnimator.ofFloat(0.0F, 1.0F);
+    // Callback to notify Flutter texture system of new frames (like iOS frameUpdateCallback)
+    private Runnable frameUpdateCallback;
+
     private boolean isRelease;
-    private long currentPlayTime = 0L;
     private double progress = 0;
     private double initProgress = 0;
     private SurfaceTexture surfaceTexture;
+    private PAGFile pagFile;
 
     private MethodChannel channel;
     private long textureId;
 
+    // Choreographer-based loop (mirrors iOS CADisplayLink approach)
+    private Choreographer choreographer;
+    private Choreographer.FrameCallback frameCallback;
+    private boolean isPlaying = false;
+    private long startTimeNs = -1;       // System.nanoTime when playback started
+    private long durationUs = 0;          // PAG file duration in microseconds
+    private int repeatCount = 1;          // -1 = infinite, >0 = play N times
+    private long currRepeatCount = 0;     // current completed repeat count
+    private boolean endEventSent = false;
 
     public FlutterPagPlayer() {
         super();
-        animator.setInterpolator(new LinearInterpolator());
-        animator.addUpdateListener(animatorUpdateListener);
-        animator.addListener(animatorListenerAdapter);
+        choreographer = Choreographer.getInstance();
+        frameCallback = new Choreographer.FrameCallback() {
+            @Override
+            public void doFrame(long frameTimeNanos) {
+                if (!isPlaying || isRelease) return;
+                updateFrame();
+                // Schedule next frame
+                choreographer.postFrameCallback(this);
+            }
+        };
     }
 
     public boolean isRelease() {
         return isRelease;
     }
 
+    public void setFrameUpdateCallback(Runnable callback) {
+        this.frameUpdateCallback = callback;
+    }
+
     public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
+        this.pagFile = file;
         if (WorkThreadExecutor.multiThread) {
             synchronized (this) {
                 setComposition(file);
@@ -50,46 +71,135 @@ public class FlutterPagPlayer extends PAGPlayer {
 
         this.channel = channel;
         this.textureId = textureId;
-        progress = initProgress;
+        this.progress = initProgress;
         this.initProgress = initProgress;
-        animator.setDuration(duration() / 1000L);
-        if (repeatCount < 0) {
-            repeatCount = 0;
+        this.repeatCount = repeatCount;
+        this.durationUs = duration(); // PAGPlayer.duration() returns microseconds
+        this.startTimeNs = -1;
+        this.currRepeatCount = 0;
+        this.endEventSent = false;
+
+        // Render initial frame on worker thread
+        if (WorkThreadExecutor.multiThread) {
+            synchronized (this) {
+                setProgress(initProgress);
+                FlutterPagPlayer.super.flush();
+            }
+        } else {
+            setProgress(initProgress);
+            FlutterPagPlayer.super.flush();
         }
-        animator.setRepeatCount(repeatCount - 1);
-        setProgressValue(initProgress);
+    }
+
+    /**
+     * Core frame update - mirrors iOS copyPixelBuffer logic exactly
+     */
+    private int frameCount = 0;
+    private void updateFrame() {
+        if (durationUs <= 0) return;
+
+        long nowNs = System.nanoTime();
+        if (startTimeNs <= 0) {
+            startTimeNs = nowNs;
+        }
+
+        long elapsedUs = (nowNs - startTimeNs) / 1000; // Convert ns to us
+        long count = elapsedUs / durationUs;
+
+        frameCount++;
+        if (frameCount % 60 == 0) {
+            Log.d("PAG_LOOP_DEBUG", "frame=" + frameCount + " elapsedUs=" + elapsedUs + " count=" + count + " repeatCount=" + repeatCount + " isPlaying=" + isPlaying);
+        }
+
+        double value;
+        if (repeatCount >= 0 && count >= repeatCount) {
+            // Animation complete
+            value = 1.0;
+            if (!endEventSent) {
+                endEventSent = true;
+                notifyEvent(FlutterPagPlugin._eventEnd);
+                isPlaying = false;
+            }
+        } else {
+            // Still looping
+            endEventSent = false;
+            long playTime = elapsedUs % durationUs;
+            value = (double) playTime / durationUs;
+        }
+
+        boolean needRecompose = (currRepeatCount != count);
+        if (needRecompose) {
+            currRepeatCount = count;
+            notifyEvent(FlutterPagPlugin._eventRepeat);
+        }
+
+        progress = value;
+        if (frameCount % 60 == 0) {
+            Log.d("PAG_LOOP_DEBUG", "progress=" + progress + " count=" + count);
+        }
+        // setProgress + flush on worker thread, then notify Flutter on main thread
+        final double p = progress;
+        final boolean recompose = needRecompose;
+        WorkThreadExecutor.getInstance().post(() -> {
+            if (WorkThreadExecutor.multiThread) {
+                synchronized (this) {
+                    if (recompose && pagFile != null) {
+                        setComposition(pagFile);
+                    }
+                    setProgress(p);
+                    FlutterPagPlayer.super.flush();
+                }
+            } else {
+                if (recompose && pagFile != null) {
+                    setComposition(pagFile);
+                }
+                setProgress(p);
+                FlutterPagPlayer.super.flush();
+            }
+            // Notify Flutter texture system of new frame (like iOS textureFrameAvailable)
+            if (frameUpdateCallback != null) {
+                frameUpdateCallback.run();
+            }
+        });
     }
 
     private boolean valid() {
         return getSurface() != null && surfaceTexture != null;
     }
 
-
     public void setProgressValue(double value) {
+        this.progress = Math.max(0.0D, Math.min(value, 1.0D));
         if (WorkThreadExecutor.multiThread) {
             synchronized (this) {
-                this.progress = Math.max(0.0D, Math.min(value, 1.0D));
-                this.currentPlayTime = (long) (progress * (double) this.animator.getDuration());
-                this.animator.setCurrentPlayTime(currentPlayTime);
                 setProgress(progress);
                 flush();
             }
         } else {
-            this.progress = Math.max(0.0D, Math.min(value, 1.0D));
-            this.currentPlayTime = (long) (progress * (double) this.animator.getDuration());
-            this.animator.setCurrentPlayTime(currentPlayTime);
             setProgress(progress);
             flush();
         }
     }
 
     public void start() {
-        animator.start();
+        if (isPlaying) return;
+        isPlaying = true;
+        if (startTimeNs <= 0) {
+            startTimeNs = System.nanoTime();
+        }
+        Log.d("PAG_LOOP_DEBUG", "start() called, repeatCount=" + repeatCount + ", durationUs=" + durationUs + ", isPlaying=" + isPlaying);
+        notifyEvent(FlutterPagPlugin._eventStart);
+        choreographer.postFrameCallback(frameCallback);
     }
 
     public void stop() {
-        pause();
+        isPlaying = false;
+        choreographer.removeFrameCallback(frameCallback);
+        startTimeNs = -1;
+        currRepeatCount = 0;
+        endEventSent = false;
         setProgressValue(initProgress);
+        notifyEvent(FlutterPagPlugin._eventEnd);
+        notifyEvent(FlutterPagPlugin._eventCancel);
     }
 
     @Override
@@ -134,20 +244,21 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     public void cancel() {
-        animator.cancel();
+        isPlaying = false;
+        choreographer.removeFrameCallback(frameCallback);
+        notifyEvent(FlutterPagPlugin._eventCancel);
     }
 
     public void pause() {
-        animator.pause();
+        isPlaying = false;
+        choreographer.removeFrameCallback(frameCallback);
     }
 
     @Override
     public void release() {
         super.release();
-        animator.cancel();
-        animator.removeAllUpdateListeners();
-        animator.removeAllListeners();
-        //此处如果放入子线程处理，会打印gl的错误日志，挪到主线程
+        isPlaying = false;
+        choreographer.removeFrameCallback(frameCallback);
         if (WorkThreadExecutor.multiThread) {
             synchronized (this) {
                 if (getSurface() != null) getSurface().release();
@@ -168,70 +279,20 @@ public class FlutterPagPlayer extends PAGPlayer {
             return false;
         }
         WorkThreadExecutor.getInstance().post(() -> {
+            boolean result;
             if (WorkThreadExecutor.multiThread) {
                 synchronized (this) {
-                    FlutterPagPlayer.super.flush();
+                    result = FlutterPagPlayer.super.flush();
                 }
             } else {
-                FlutterPagPlayer.super.flush();
+                result = FlutterPagPlayer.super.flush();
             }
-
+            if (frameCount % 60 == 0) {
+                Log.d("PAG_LOOP_DEBUG", "flush result=" + result + " surface=" + (getSurface() != null));
+            }
         });
         return true;
-
-//        return super.flush();
     }
-
-    // 更新PAG渲染
-    private final ValueAnimator.AnimatorUpdateListener animatorUpdateListener = new ValueAnimator.AnimatorUpdateListener() {
-
-        @Override
-        public void onAnimationUpdate(ValueAnimator animation) {
-            progress = (double) (Float) animation.getAnimatedValue();
-            currentPlayTime = (long) (progress * (double) animator.getDuration());
-            if (WorkThreadExecutor.multiThread) {
-                synchronized (FlutterPagPlayer.this) {
-                    setProgress(progress);
-                    flush();
-                }
-            } else {
-                setProgress(progress);
-                flush();
-            }
-        }
-    };
-
-    // 动画状态监听
-    private final AnimatorListenerAdapter animatorListenerAdapter = new AnimatorListenerAdapter() {
-        @Override
-        public void onAnimationStart(Animator animator) {
-            super.onAnimationStart(animator);
-            notifyEvent(FlutterPagPlugin._eventStart);
-        }
-
-        @Override
-        public void onAnimationEnd(Animator animation) {
-            super.onAnimationEnd(animation);
-            // Align with iOS platform, avoid triggering this method when stopping
-            int repeatCount = ((ValueAnimator) animation).getRepeatCount();
-            if (repeatCount >= 0 && (animation.getDuration() > 0) &&
-                    (currentPlayTime / animation.getDuration() > repeatCount)) {
-                notifyEvent(FlutterPagPlugin._eventEnd);
-            }
-        }
-
-        @Override
-        public void onAnimationCancel(Animator animator) {
-            super.onAnimationCancel(animator);
-            notifyEvent(FlutterPagPlugin._eventCancel);
-        }
-
-        @Override
-        public void onAnimationRepeat(Animator animator) {
-            super.onAnimationRepeat(animator);
-            notifyEvent(FlutterPagPlugin._eventRepeat);
-        }
-    };
 
     void notifyEvent(String event) {
         final HashMap<String, Object> arguments = new HashMap<>();
