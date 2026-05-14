@@ -330,6 +330,35 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             entry = textureRegistry.createSurfaceProducer();
             currentId = String.valueOf(entry.id());
             entryMap.put(String.valueOf(entry.id()), entry);
+            // 关键修复：注册 SurfaceProducer.Callback，处理 surface 生命周期事件。
+            // 不注册的话，App 进入后台或低内存场景下 Flutter 会销毁底层 Surface（API28+ 下是 ImageReader 的
+            // HardwareBuffer），而 PAGPlayer 仍持有失效的 PAGSurface 继续 flush，导致 Impeller(Vulkan) 在
+            // allocator_vk.cc 报 ErrorInitializationFailed，最终在 canvas.cc:1222 触发
+            // "Check failed: back_texture" 的 FATAL 崩溃。
+            //
+            // 这里只重写 Flutter 3.22 开始就存在的旧名 onSurfaceCreated / onSurfaceDestroyed 方法
+            //（虽然 3.27/3.28 开始被新名 onSurfaceAvailable/onSurfaceCleanup 取代并标记 forRemoval，
+            // 但 Flutter SDK 的默认实现保证了新名调用最终会回落到旧名上，所以兼容性最好）。
+            final TextureRegistry.SurfaceProducer producerRef = entry;
+            final FlutterPagPlayer playerRef = pagPlayer;
+            entry.setCallback(new TextureRegistry.SurfaceProducer.Callback() {
+                @SuppressWarnings({"removal", "deprecation"})
+                @Override
+                public void onSurfaceCreated() {
+                    if (playerRef == null || playerRef.isRelease()) return;
+                    Surface newSurface = producerRef.getSurface();
+                    if (newSurface != null) {
+                        playerRef.handleSurfaceAvailable(newSurface);
+                    }
+                }
+
+                @SuppressWarnings({"removal", "deprecation"})
+                @Override
+                public void onSurfaceDestroyed() {
+                    if (playerRef == null || playerRef.isRelease()) return;
+                    playerRef.handleSurfaceLost();
+                }
+            });
 //            SurfaceTexture.OnFrameAvailableListener listener = null;
 //            try {
 //                Class<?> surfaceTextureClass = entry.getClass();

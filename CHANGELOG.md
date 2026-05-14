@@ -1,3 +1,10 @@
+## 1.0.10
+* 修复 Flutter 3.27+ 上 Impeller(Vulkan) 后端在 App 进入后台 / 低内存场景下崩溃的问题
+  （`Unable to allocate Vulkan Image: ErrorInitializationFailed` → `Check failed: back_texture`）。
+  原因是没有为 `SurfaceProducer` 注册生命周期回调，Surface 被 Flutter 销毁后插件仍持有失效的
+  `PAGSurface` 继续 flush。现在监听 `onSurfaceCreated/onSurfaceDestroyed`，在销毁时暂停动画
+  并释放旧的 `PAGSurface`，恢复时重建并继续渲染。
+
 ## 1.0.8
 * 增加相同资源路径则复用的功能，可设置关闭
 
