@@ -1,5 +1,4 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -95,7 +94,8 @@ class PAGView extends StatefulWidget {
     Key? key,
   })  : this.bytesData = null,
         this.url = null,
-        this.reuseKey = reuseKey ?? (package != null ? '$package$assetName' : assetName),
+        this.reuseKey =
+            reuseKey ?? (package != null ? '$package$assetName' : assetName),
         super(key: key);
 
   PAGView.bytes(
@@ -124,9 +124,13 @@ class PAGView extends StatefulWidget {
 }
 
 class PAGViewState extends State<PAGView> {
+  static const double _warmupTextureOpacity = 1 / 255;
+
   bool _hasLoadTexture = false;
   int _textureId = -1;
+  bool _nativeFrameReady = false;
   bool _frameReady = false;
+  int _frameStateGeneration = 0;
 
   double rawWidth = 0;
   double rawHeight = 0;
@@ -144,6 +148,7 @@ class PAGViewState extends State<PAGView> {
   static const String _nativeStart = 'start';
   static const String _nativeStop = 'stop';
   static const String _nativePause = 'pause';
+  static const String _nativePauseForLifecycle = 'pauseForLifecycle';
   static const String _nativeSetProgress = 'setProgress';
   static const String _nativeGetPointLayer = 'getLayersUnderPoint';
   static const String _nativeEnableCache = "enableCache";
@@ -183,50 +188,92 @@ class PAGViewState extends State<PAGView> {
   static const String _eventRepeat = 'onAnimationRepeat';
   static const String _eventUpdate = 'onAnimationUpdate';
   static const String _eventFrameReady = 'onFrameReady';
+  static const String _eventFrameUnavailable = 'onFrameUnavailable';
 
   // 回调监听
-  static MethodChannel get _channel => (const MethodChannel('flutter_pag_plugin')
-    ..setMethodCallHandler((result) {
-      if (result.method == _playCallback) {
-        final map = callbackHandlers[result.arguments[_argumentTextureId]];
-        if (map != null) {
-          for (var entry in map.entries) {
-            entry.value?.call(result.arguments[_argumentEvent]);
+  static MethodChannel get _channel =>
+      (const MethodChannel('flutter_pag_plugin')
+        ..setMethodCallHandler((result) {
+          if (result.method == _playCallback) {
+            final event = result.arguments[_argumentEvent];
+            final map = callbackHandlers[result.arguments[_argumentTextureId]];
+            if (map != null) {
+              for (var entry in map.entries) {
+                entry.value?.call(event);
+              }
+            }
+            // callbackHandlers[result.arguments[_argumentTextureId]]?.call(result.arguments[_argumentEvent]);
+            if (event == _eventFrameReady || event == _eventFrameUnavailable) {
+              frameStateHandlers[result.arguments[_argumentViewId]]?.call(
+                event == _eventFrameReady,
+              );
+            }
           }
-        }
-        // callbackHandlers[result.arguments[_argumentTextureId]]?.call(result.arguments[_argumentEvent]);
-        if (result.arguments[_argumentEvent] == _eventFrameReady) {
-          frameReadyHandlers[result.arguments[_argumentViewId]]?.call();
-        }
-      }
 
-      return Future<dynamic>.value();
-    }));
+          return Future<dynamic>.value();
+        }));
 
   static Map<int, Map<int, Function(String event)?>?> callbackHandlers = {};
-  static Map<int, Function()> frameReadyHandlers = {};
+  static Map<int, ValueChanged<bool>> frameStateHandlers = {};
 
   @override
   void initState() {
     super.initState();
     instanceId = _instanceCounter++;
-    frameReadyHandlers[instanceId] = () {
-      setState(() {
-        _frameReady = true;
-      });
-    };
+    frameStateHandlers[instanceId] = _handleFrameState;
     newTexture();
   }
 
+  void _handleFrameState(bool frameReady) {
+    if (!mounted) return;
+
+    if (!frameReady) {
+      _resetFrameState();
+      return;
+    }
+
+    if (_nativeFrameReady) return;
+    final generation = ++_frameStateGeneration;
+    setState(() {
+      _nativeFrameReady = true;
+    });
+
+    // flush 成功只代表 Android 已提交像素；先让低透明度 Texture 在静态遮罩下参与一帧
+    // Flutter 合成，再移除遮罩，避免首个 Texture 帧仍是 Surface 的黑色初始缓冲。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          generation != _frameStateGeneration ||
+          !_nativeFrameReady ||
+          _frameReady) {
+        return;
+      }
+      setState(() {
+        _frameReady = true;
+      });
+    });
+  }
+
+  void _resetFrameState() {
+    _frameStateGeneration++;
+    if (!_nativeFrameReady && !_frameReady) return;
+    setState(() {
+      _nativeFrameReady = false;
+      _frameReady = false;
+    });
+  }
+
   bool _isAvailable() {
-    return true;
-    // if (!checkAvailable || !Platform.isAndroid) return true;
-    // return _frameReady;
+    if (!checkAvailable || defaultTargetPlatform != TargetPlatform.android)
+      return true;
+    return _frameReady;
   }
 
   // 初始化
   void newTexture() async {
-    int repeatCount = widget.repeatCount <= 0 && widget.repeatCount != PAGView.REPEAT_COUNT_LOOP ? PAGView.REPEAT_COUNT_DEFAULT : widget.repeatCount;
+    int repeatCount = widget.repeatCount <= 0 &&
+            widget.repeatCount != PAGView.REPEAT_COUNT_LOOP
+        ? PAGView.REPEAT_COUNT_DEFAULT
+        : widget.repeatCount;
     double initProcess = widget.initProgress < 0 ? 0 : widget.initProgress;
 
     try {
@@ -267,7 +314,8 @@ class PAGViewState extends State<PAGView> {
         _eventCancel: widget.onAnimationCancel,
         _eventRepeat: widget.onAnimationRepeat,
       };
-      if (!callbackHandlers.containsKey(_textureId)) callbackHandlers[_textureId] = {};
+      if (!callbackHandlers.containsKey(_textureId))
+        callbackHandlers[_textureId] = {};
       callbackHandlers[_textureId]?[instanceId] = (event) {
         events[event]?.call();
       };
@@ -298,12 +346,35 @@ class PAGViewState extends State<PAGView> {
     _channel.invokeMethod(_nativePause, {_argumentTextureId: _textureId});
   }
 
+  /// 暂停生命周期播放，并让 Android Texture 重新等待下一次成功渲染。
+  ///
+  /// FlutterView 从原生容器移除时，SurfaceProducer 不一定回调 Surface 销毁。
+  /// 该方法会立即恢复默认占位，并在原生侧原子地暂停和作废旧首帧状态；下一次
+  /// [start] 会先提交新帧，收到原生成功回调后才重新显示 Texture。
+  void pauseForLifecycle() {
+    if (!_hasLoadTexture) {
+      return;
+    }
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      pause();
+      return;
+    }
+    _resetFrameState();
+    _channel.invokeMethod(
+      _nativePauseForLifecycle,
+      {_argumentTextureId: _textureId},
+    );
+  }
+
   /// 设置进度
   void setProgress(double progress) {
     if (!_hasLoadTexture) {
       return;
     }
-    _channel.invokeMethod(_nativeSetProgress, {_argumentTextureId: _textureId, _argumentProgress: progress});
+    _channel.invokeMethod(_nativeSetProgress, {
+      _argumentTextureId: _textureId,
+      _argumentProgress: progress,
+    });
   }
 
   /// 获取某一位置的图层
@@ -311,7 +382,13 @@ class PAGViewState extends State<PAGView> {
     if (!_hasLoadTexture) {
       return [];
     }
-    return (await _channel.invokeMethod(_nativeGetPointLayer, {_argumentTextureId: _textureId, _argumentPointX: x, _argumentPointY: y}) as List).map((e) => e.toString()).toList();
+    return (await _channel.invokeMethod(_nativeGetPointLayer, {
+      _argumentTextureId: _textureId,
+      _argumentPointX: x,
+      _argumentPointY: y,
+    }) as List)
+        .map((e) => e.toString())
+        .toList();
   }
 
   void notifyRelease() {
@@ -327,19 +404,31 @@ class PAGViewState extends State<PAGView> {
   @override
   Widget build(BuildContext context) {
     if (_hasLoadTexture) {
-      if (_isAvailable()) {
-        return SizedBox (
-          width: widget.width ?? (rawWidth / 2),
-          height: widget.height ?? (rawHeight / 2),
+      final width = widget.width ?? (rawWidth / 2);
+      final height = widget.height ?? (rawHeight / 2);
+      if (!checkAvailable || defaultTargetPlatform != TargetPlatform.android) {
+        return SizedBox(
+          width: width,
+          height: height,
           child: Texture(textureId: _textureId),
-        );
-      } else {
-        return widget.defaultBuilder?.call(context) ?? SizedBox(
-          width: widget.width ?? (rawWidth / 2),
-          height: widget.height ?? (rawHeight / 2),
         );
       }
 
+      return SizedBox(
+        width: width,
+        height: height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Opacity(
+              opacity: _frameReady ? 1 : _warmupTextureOpacity,
+              child: Texture(textureId: _textureId),
+            ),
+            if (!_frameReady)
+              widget.defaultBuilder?.call(context) ?? const SizedBox.shrink(),
+          ],
+        ),
+      );
     } else {
       return widget.defaultBuilder?.call(context) ??
           SizedBox(
@@ -351,13 +440,15 @@ class PAGViewState extends State<PAGView> {
 
   @override
   void dispose() {
+    _frameStateGeneration++;
     super.dispose();
     notifyRelease();
     callbackHandlers[_textureId]?.remove(instanceId);
-    if (callbackHandlers[_textureId] != null && callbackHandlers[_textureId]!.isEmpty) {
+    if (callbackHandlers[_textureId] != null &&
+        callbackHandlers[_textureId]!.isEmpty) {
       callbackHandlers.remove(_textureId);
     }
-    frameReadyHandlers.remove(instanceId);
+    frameStateHandlers.remove(instanceId);
   }
 }
 
@@ -367,21 +458,29 @@ typedef PAGCallback = void Function();
 class PAG {
   // 是否开启缓存，默认true
   static void enableCache(bool enable) {
-    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableCache, {PAGViewState._argumentCacheEnabled: enable});
+    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableCache, {
+      PAGViewState._argumentCacheEnabled: enable,
+    });
   }
 
   // 是否多线程加载和释放资源，默认true
   static void enableMultiThread(bool enable) {
-    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableMultiThread, {PAGViewState._argumentMultiThreadEnabled: enable});
+    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableMultiThread, {
+      PAGViewState._argumentMultiThreadEnabled: enable,
+    });
   }
 
   // 设置缓存数量，默认10
   static void setCacheSize(int size) {
-    PAGViewState._channel.invokeMethod(PAGViewState._nativeSetCacheSize, {PAGViewState._argumentCacheSize: size});
+    PAGViewState._channel.invokeMethod(PAGViewState._nativeSetCacheSize, {
+      PAGViewState._argumentCacheSize: size,
+    });
   }
 
   static void enableReuse(bool enable) {
-    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableReuse, {PAGViewState._argumentReuseEnabled: enable});
+    PAGViewState._channel.invokeMethod(PAGViewState._nativeEnableReuse, {
+      PAGViewState._argumentReuseEnabled: enable,
+    });
   }
 
   static void enableCheckAvailable(bool enable) {
