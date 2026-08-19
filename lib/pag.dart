@@ -69,11 +69,11 @@ class PAGView extends StatefulWidget {
     this.reuse = false,
     String? reuseKey,
     Key? key,
-  }) : this.bytesData = null,
-       this.assetName = null,
-       this.package = null,
-       this.reuseKey = reuseKey ?? url,
-       super(key: key);
+  })  : this.bytesData = null,
+        this.assetName = null,
+        this.package = null,
+        this.reuseKey = reuseKey ?? url,
+        super(key: key);
 
   PAGView.asset(
     this.assetName, {
@@ -92,11 +92,11 @@ class PAGView extends StatefulWidget {
     this.reuse = false,
     String? reuseKey,
     Key? key,
-  }) : this.bytesData = null,
-       this.url = null,
-       this.reuseKey =
-           reuseKey ?? (package != null ? '$package$assetName' : assetName),
-       super(key: key);
+  })  : this.bytesData = null,
+        this.url = null,
+        this.reuseKey =
+            reuseKey ?? (package != null ? '$package$assetName' : assetName),
+        super(key: key);
 
   PAGView.bytes(
     this.bytesData, {
@@ -113,20 +113,24 @@ class PAGView extends StatefulWidget {
     this.onAnimationRepeat,
     this.defaultBuilder,
     Key? key,
-  }) : this.url = null,
-       this.assetName = null,
-       this.reuseKey = null,
-       this.reuse = false,
-       super(key: key);
+  })  : this.url = null,
+        this.assetName = null,
+        this.reuseKey = null,
+        this.reuse = false,
+        super(key: key);
 
   @override
   PAGViewState createState() => PAGViewState();
 }
 
 class PAGViewState extends State<PAGView> {
+  static const double _warmupTextureOpacity = 1 / 255;
+
   bool _hasLoadTexture = false;
   int _textureId = -1;
+  bool _nativeFrameReady = false;
   bool _frameReady = false;
+  int _frameStateGeneration = 0;
 
   double rawWidth = 0;
   double rawHeight = 0;
@@ -186,27 +190,27 @@ class PAGViewState extends State<PAGView> {
   static const String _eventFrameUnavailable = 'onFrameUnavailable';
 
   // 回调监听
-  static MethodChannel
-  get _channel => (const MethodChannel('flutter_pag_plugin')
-    ..setMethodCallHandler((result) {
-      if (result.method == _playCallback) {
-        final event = result.arguments[_argumentEvent];
-        final map = callbackHandlers[result.arguments[_argumentTextureId]];
-        if (map != null) {
-          for (var entry in map.entries) {
-            entry.value?.call(event);
+  static MethodChannel get _channel =>
+      (const MethodChannel('flutter_pag_plugin')
+        ..setMethodCallHandler((result) {
+          if (result.method == _playCallback) {
+            final event = result.arguments[_argumentEvent];
+            final map = callbackHandlers[result.arguments[_argumentTextureId]];
+            if (map != null) {
+              for (var entry in map.entries) {
+                entry.value?.call(event);
+              }
+            }
+            // callbackHandlers[result.arguments[_argumentTextureId]]?.call(result.arguments[_argumentEvent]);
+            if (event == _eventFrameReady || event == _eventFrameUnavailable) {
+              frameStateHandlers[result.arguments[_argumentViewId]]?.call(
+                event == _eventFrameReady,
+              );
+            }
           }
-        }
-        // callbackHandlers[result.arguments[_argumentTextureId]]?.call(result.arguments[_argumentEvent]);
-        if (event == _eventFrameReady || event == _eventFrameUnavailable) {
-          frameStateHandlers[result.arguments[_argumentViewId]]?.call(
-            event == _eventFrameReady,
-          );
-        }
-      }
 
-      return Future<dynamic>.value();
-    }));
+          return Future<dynamic>.value();
+        }));
 
   static Map<int, Map<int, Function(String event)?>?> callbackHandlers = {};
   static Map<int, ValueChanged<bool>> frameStateHandlers = {};
@@ -215,13 +219,42 @@ class PAGViewState extends State<PAGView> {
   void initState() {
     super.initState();
     instanceId = _instanceCounter++;
-    frameStateHandlers[instanceId] = (frameReady) {
-      if (!mounted || _frameReady == frameReady) return;
-      setState(() {
-        _frameReady = frameReady;
-      });
-    };
+    frameStateHandlers[instanceId] = _handleFrameState;
     newTexture();
+  }
+
+  void _handleFrameState(bool frameReady) {
+    if (!mounted) return;
+
+    if (!frameReady) {
+      _frameStateGeneration++;
+      if (!_nativeFrameReady && !_frameReady) return;
+      setState(() {
+        _nativeFrameReady = false;
+        _frameReady = false;
+      });
+      return;
+    }
+
+    if (_nativeFrameReady) return;
+    final generation = ++_frameStateGeneration;
+    setState(() {
+      _nativeFrameReady = true;
+    });
+
+    // flush 成功只代表 Android 已提交像素；先让低透明度 Texture 在静态遮罩下参与一帧
+    // Flutter 合成，再移除遮罩，避免首个 Texture 帧仍是 Surface 的黑色初始缓冲。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          generation != _frameStateGeneration ||
+          !_nativeFrameReady ||
+          _frameReady) {
+        return;
+      }
+      setState(() {
+        _frameReady = true;
+      });
+    });
   }
 
   bool _isAvailable() {
@@ -232,8 +265,7 @@ class PAGViewState extends State<PAGView> {
 
   // 初始化
   void newTexture() async {
-    int repeatCount =
-        widget.repeatCount <= 0 &&
+    int repeatCount = widget.repeatCount <= 0 &&
             widget.repeatCount != PAGView.REPEAT_COUNT_LOOP
         ? PAGView.REPEAT_COUNT_DEFAULT
         : widget.repeatCount;
@@ -326,11 +358,10 @@ class PAGViewState extends State<PAGView> {
       return [];
     }
     return (await _channel.invokeMethod(_nativeGetPointLayer, {
-              _argumentTextureId: _textureId,
-              _argumentPointX: x,
-              _argumentPointY: y,
-            })
-            as List)
+      _argumentTextureId: _textureId,
+      _argumentPointX: x,
+      _argumentPointY: y,
+    }) as List)
         .map((e) => e.toString())
         .toList();
   }
@@ -348,19 +379,31 @@ class PAGViewState extends State<PAGView> {
   @override
   Widget build(BuildContext context) {
     if (_hasLoadTexture) {
-      if (_isAvailable()) {
+      final width = widget.width ?? (rawWidth / 2);
+      final height = widget.height ?? (rawHeight / 2);
+      if (!checkAvailable || defaultTargetPlatform != TargetPlatform.android) {
         return SizedBox(
-          width: widget.width ?? (rawWidth / 2),
-          height: widget.height ?? (rawHeight / 2),
+          width: width,
+          height: height,
           child: Texture(textureId: _textureId),
         );
-      } else {
-        return widget.defaultBuilder?.call(context) ??
-            SizedBox(
-              width: widget.width ?? (rawWidth / 2),
-              height: widget.height ?? (rawHeight / 2),
-            );
       }
+
+      return SizedBox(
+        width: width,
+        height: height,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Opacity(
+              opacity: _frameReady ? 1 : _warmupTextureOpacity,
+              child: Texture(textureId: _textureId),
+            ),
+            if (!_frameReady)
+              widget.defaultBuilder?.call(context) ?? const SizedBox.shrink(),
+          ],
+        ),
+      );
     } else {
       return widget.defaultBuilder?.call(context) ??
           SizedBox(
@@ -372,6 +415,7 @@ class PAGViewState extends State<PAGView> {
 
   @override
   void dispose() {
+    _frameStateGeneration++;
     super.dispose();
     notifyRelease();
     callbackHandlers[_textureId]?.remove(instanceId);

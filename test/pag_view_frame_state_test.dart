@@ -36,7 +36,7 @@ void main() {
         .setMockMethodCallHandler(_channel, null);
   });
 
-  testWidgets('Android keeps fallback until a rendered frame is ready', (
+  testWidgets('Android warms Texture behind fallback before revealing it', (
     tester,
   ) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
@@ -45,9 +45,14 @@ void main() {
     await tester.pump();
 
     expect(find.byKey(const Key('fallback')), findsOneWidget);
-    expect(find.byType(Texture), findsNothing);
+    expect(find.byType(Texture), findsOneWidget);
 
     await _sendFrameState(viewId, 'onFrameReady');
+    await tester.pump();
+
+    expect(find.byKey(const Key('fallback')), findsOneWidget);
+    expect(find.byType(Texture), findsOneWidget);
+
     await tester.pump();
 
     expect(find.byKey(const Key('fallback')), findsNothing);
@@ -64,14 +69,20 @@ void main() {
     await tester.pump();
     await _sendFrameState(viewId, 'onFrameReady');
     await tester.pump();
+    await tester.pump();
 
     await _sendFrameState(viewId, 'onFrameUnavailable');
     await tester.pump();
 
     expect(find.byKey(const Key('fallback')), findsOneWidget);
-    expect(find.byType(Texture), findsNothing);
+    expect(find.byType(Texture), findsOneWidget);
 
     await _sendFrameState(viewId, 'onFrameReady');
+    await tester.pump();
+
+    expect(find.byKey(const Key('fallback')), findsOneWidget);
+    expect(find.byType(Texture), findsOneWidget);
+
     await tester.pump();
 
     expect(find.byKey(const Key('fallback')), findsNothing);
@@ -107,6 +118,22 @@ void main() {
     await tester.pump();
 
     expect(tester.takeException(), isNull);
+    debugDefaultTargetPlatformOverride = null;
+  });
+
+  testWidgets('Surface loss cancels a pending Texture reveal', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+
+    await tester.pumpWidget(_buildPagView());
+    await tester.pump();
+
+    await _sendFrameState(viewId, 'onFrameReady');
+    await _sendFrameState(viewId, 'onFrameUnavailable');
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byKey(const Key('fallback')), findsOneWidget);
+    expect(find.byType(Texture), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });
 }
