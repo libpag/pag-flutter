@@ -57,6 +57,8 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     private final LinkedList<String>  preFreeEntryPool = new LinkedList<>();
     private final HashMap<String, ReuseItem> reuseMap = new HashMap<>();
     private final HashMap<String, List<Result>> resultMap = new HashMap<>();
+    // 一个 Texture 可能被 reuse 模式下的多个 PAGView 使用，首帧状态需广播给全部活跃 View。
+    private final HashMap<String, Set<Integer>> viewIdMap = new HashMap<>();
 
     // 原生接口
     final static String _nativeInit = "initPag";
@@ -104,6 +106,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     final static String _eventRepeat = "onAnimationRepeat";
     final static String _eventUpdate = "onAnimationUpdate";
     final static String _eventFrameReady = "onFrameReady";
+    final static String _eventFrameUnavailable = "onFrameUnavailable";
 
     private volatile boolean isEngineAttached = false;
 
@@ -230,11 +233,16 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             if (reuseItem != null && reuseItem.init) {
                 //如果拿到了初始化完成的reuseItem，直接返回结果
                 reuseItem.usingViewSet.add(viewId);
+                registerView(reuseItem.textureId, viewId);
                 final HashMap<String, Object> callback = new HashMap<String, Object>();
                 callback.put(_argumentTextureId, reuseItem.textureId);
                 callback.put(_argumentWidth, (double) reuseItem.width);
                 callback.put(_argumentHeight, (double) reuseItem.height);
                 result.success(callback);
+                FlutterPagPlayer reusePlayer = layerMap.get(String.valueOf(reuseItem.textureId));
+                if (reusePlayer != null && reusePlayer.isFrameReady()) {
+                    notifyFrameStateToView(reuseItem.textureId, viewId, true);
+                }
                 return;
             } else if (reuseItem != null){
                 reuseItem.usingViewSet.add(viewId);
@@ -341,6 +349,11 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
             // 但 Flutter SDK 的默认实现保证了新名调用最终会回落到旧名上，所以兼容性最好）。
             final TextureRegistry.SurfaceProducer producerRef = entry;
             final FlutterPagPlayer playerRef = pagPlayer;
+            playerRef.setFrameStateListener(frameReady -> handler.post(() -> {
+                // Surface 回调与渲染线程可能并发；仅转发当前代次最终仍有效的状态。
+                if (playerRef.isFrameReady() != frameReady) return;
+                notifyFrameState(entry.id(), frameReady);
+            }));
             entry.setCallback(new TextureRegistry.SurfaceProducer.Callback() {
                 @SuppressWarnings({"removal", "deprecation"})
                 @Override
@@ -400,7 +413,19 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 error(call, result, "-1102", "PagPlayer异常！", null);
                 return;
             }
-            notifyFrameReady(Long.parseLong(currentId), viewId);
+        }
+
+        if (reuseEnabled && reuse && reuseKey != null && !reuseKey.isEmpty()) {
+            ReuseItem reuseItem = reuseMap.get(reuseKey);
+            if (reuseItem != null) {
+                for (int activeViewId : reuseItem.usingViewSet) {
+                    registerView(Long.parseLong(currentId), activeViewId);
+                }
+            } else {
+                registerView(Long.parseLong(currentId), viewId);
+            }
+        } else {
+            registerView(Long.parseLong(currentId), viewId);
         }
 
         if (entry != null) {
@@ -412,12 +437,13 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         WorkThreadExecutor.getInstance().post(() -> {
             pagPlayer.init(composition, repeatCount, initProgress, channel, Long.parseLong(currentId));
             pagPlayer.updateBufferSize();
+            // updateBufferSize() 会清空 Surface；只有它之后真正完成的 flush 才能作为首帧就绪依据。
+            pagPlayer.flush();
 
             handler.post(new Runnable() {
                 @Override
                 public void run() {
                     if (!isEngineAttached) return;
-                    notifyFrameReady(Long.parseLong(currentId), viewId);
                     if (autoPlay) {
                         pagPlayer.start();
                     }
@@ -451,11 +477,41 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
 
     }
 
-    private void notifyFrameReady(long textureId, int viewId) {
+    private void registerView(long textureId, int viewId) {
+        String textureKey = String.valueOf(textureId);
+        Set<Integer> viewIds = viewIdMap.get(textureKey);
+        if (viewIds == null) {
+            viewIds = new HashSet<>();
+            viewIdMap.put(textureKey, viewIds);
+        }
+        viewIds.add(viewId);
+    }
+
+    private void unregisterView(long textureId, int viewId) {
+        String textureKey = String.valueOf(textureId);
+        Set<Integer> viewIds = viewIdMap.get(textureKey);
+        if (viewIds == null) return;
+        viewIds.remove(viewId);
+        if (viewIds.isEmpty()) {
+            viewIdMap.remove(textureKey);
+        }
+    }
+
+    private void notifyFrameState(long textureId, boolean frameReady) {
+        if (!isEngineAttached) return;
+        Set<Integer> viewIds = viewIdMap.get(String.valueOf(textureId));
+        if (viewIds == null || viewIds.isEmpty()) return;
+        for (int viewId : new HashSet<>(viewIds)) {
+            notifyFrameStateToView(textureId, viewId, frameReady);
+        }
+    }
+
+    private void notifyFrameStateToView(long textureId, int viewId, boolean frameReady) {
         final HashMap<String, Object> arguments = new HashMap<>();
         arguments.put(FlutterPagPlugin._argumentTextureId, textureId);
         arguments.put(FlutterPagPlugin._argumentViewId, viewId);
-        arguments.put(FlutterPagPlugin._argumentEvent, _eventFrameReady);
+        arguments.put(FlutterPagPlugin._argumentEvent,
+                frameReady ? _eventFrameReady : _eventFrameUnavailable);
         channel.invokeMethod(FlutterPagPlugin._playCallback, arguments);
     }
 
@@ -511,6 +567,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         final int textureId = call.argument(_argumentTextureId);
         final boolean frameAvailable = call.argument(_argumentFrameAvailable); //标记surface是否正常，不正常不走缓存
 
+        unregisterView(textureId, viewId);
 
         if (reuseEnabled && reuse && reuseKey != null && !reuseKey.isEmpty()) {
             ReuseItem reuseItem = reuseMap.get(reuseKey);
@@ -600,6 +657,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         preFreeEntryPool.clear();
         reuseMap.clear();
         resultMap.clear();
+        viewIdMap.clear();
         layerMap.clear();
         entryMap.clear();
     }

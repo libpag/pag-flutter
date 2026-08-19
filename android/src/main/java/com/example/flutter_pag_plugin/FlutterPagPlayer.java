@@ -3,7 +3,6 @@ package com.example.flutter_pag_plugin;
 import android.animation.Animator;
 import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
-import android.graphics.SurfaceTexture;
 import android.util.Log;
 import android.view.Surface;
 import android.view.animation.LinearInterpolator;
@@ -19,14 +18,22 @@ import io.flutter.plugin.common.MethodChannel;
 
 public class FlutterPagPlayer extends PAGPlayer {
 
+    public interface FrameStateListener {
+        void onFrameStateChanged(boolean frameReady);
+    }
+
     private static final String TAG = "FlutterPagPlayer";
 
     private final ValueAnimator animator = ValueAnimator.ofFloat(0.0F, 1.0F);
-    private boolean isRelease;
+    private volatile boolean isRelease;
     // surface 是否被 Flutter 临时销毁（onSurfaceCleanup/onSurfaceDestroyed），用于在 flush 时拦截渲染
     private volatile boolean surfaceLost = false;
     // surface 丢失时是否处于播放状态，用于恢复时决定是否继续播放
     private boolean wasRunningBeforeSurfaceLost = false;
+    // 每次 composition 或 Surface 更新都递增，避免旧 Surface 的异步 flush 误报首帧可用。
+    private volatile long frameGeneration = 0L;
+    private volatile boolean frameReady = false;
+    private volatile FrameStateListener frameStateListener;
     private long currentPlayTime = 0L;
     private double progress = 0;
     private double initProgress = 0;
@@ -46,25 +53,33 @@ public class FlutterPagPlayer extends PAGPlayer {
         return isRelease;
     }
 
-    public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
-        if (WorkThreadExecutor.multiThread) {
-            synchronized (this) {
-                setComposition(file);
-            }
-        } else {
-            setComposition(file);
-        }
+    public void setFrameStateListener(FrameStateListener listener) {
+        frameStateListener = listener;
+    }
 
+    public boolean isFrameReady() {
+        return frameReady;
+    }
+
+    public void init(PAGFile file, int repeatCount, double initProgress, MethodChannel channel, long textureId) {
         this.channel = channel;
         this.textureId = textureId;
-        progress = initProgress;
-        this.initProgress = initProgress;
-        animator.setDuration(duration() / 1000L);
-        if (repeatCount < 0) {
-            repeatCount = 0;
+        FrameStateListener listener;
+        synchronized (this) {
+            listener = advanceFrameGenerationLocked();
+            setComposition(file);
+            progress = Math.max(0.0D, Math.min(initProgress, 1.0D));
+            this.initProgress = progress;
+            animator.setDuration(duration() / 1000L);
+            if (repeatCount < 0) {
+                repeatCount = 0;
+            }
+            animator.setRepeatCount(repeatCount - 1);
+            currentPlayTime = (long) (progress * (double) animator.getDuration());
+            animator.setCurrentPlayTime(currentPlayTime);
+            setProgress(progress);
         }
-        animator.setRepeatCount(repeatCount - 1);
-        setProgressValue(initProgress);
+        notifyFrameUnavailable(listener);
     }
 
     private boolean valid() {
@@ -116,23 +131,17 @@ public class FlutterPagPlayer extends PAGPlayer {
         if (wasRunningBeforeSurfaceLost) {
             animator.pause();
         }
-        if (WorkThreadExecutor.multiThread) {
-            synchronized (this) {
-                surfaceLost = true;
-                PAGSurface oldSurface = getSurface();
-                super.setSurface(null);
-                if (oldSurface != null) {
-                    oldSurface.release();
-                }
-            }
-        } else {
+        FrameStateListener listener;
+        synchronized (this) {
             surfaceLost = true;
+            listener = advanceFrameGenerationLocked();
             PAGSurface oldSurface = getSurface();
             super.setSurface(null);
             if (oldSurface != null) {
                 oldSurface.release();
             }
         }
+        notifyFrameUnavailable(listener);
     }
 
     /**
@@ -141,18 +150,11 @@ public class FlutterPagPlayer extends PAGPlayer {
     public void handleSurfaceAvailable(Surface surface) {
         if (isRelease || surface == null) return;
         PAGSurface newPagSurface = PAGSurface.FromSurface(surface);
-        if (WorkThreadExecutor.multiThread) {
-            synchronized (this) {
-                super.setSurface(newPagSurface);
-                surfaceLost = false;
-                PAGSurface s = getSurface();
-                if (s != null) {
-                    s.updateSize();
-                    s.clearAll();
-                }
-                setProgress(progress);
-            }
-        } else {
+        final long generation;
+        FrameStateListener listener;
+        synchronized (this) {
+            listener = advanceFrameGenerationLocked();
+            generation = frameGeneration;
             super.setSurface(newPagSurface);
             surfaceLost = false;
             PAGSurface s = getSurface();
@@ -162,20 +164,8 @@ public class FlutterPagPlayer extends PAGPlayer {
             }
             setProgress(progress);
         }
-        // 用一次同步 flush 把当前帧画上，避免出现一帧空白
-        WorkThreadExecutor.getInstance().post(() -> {
-            if (WorkThreadExecutor.multiThread) {
-                synchronized (this) {
-                    if (!isRelease && !surfaceLost) {
-                        FlutterPagPlayer.super.flush();
-                    }
-                }
-            } else {
-                if (!isRelease && !surfaceLost) {
-                    FlutterPagPlayer.super.flush();
-                }
-            }
-        });
+        notifyFrameUnavailable(listener);
+        scheduleFlush(generation);
         if (wasRunningBeforeSurfaceLost) {
             animator.resume();
             wasRunningBeforeSurfaceLost = false;
@@ -187,15 +177,7 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     public void updateBufferSize() {
-        if (WorkThreadExecutor.multiThread) {
-            synchronized (this) {
-                PAGSurface surface = getSurface();
-                if (surface != null) {
-                    surface.updateSize();
-                    surface.clearAll();
-                }
-            }
-        } else {
+        synchronized (this) {
             PAGSurface surface = getSurface();
             if (surface != null) {
                 surface.updateSize();
@@ -205,21 +187,16 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     public void clear() {
-        if (WorkThreadExecutor.multiThread) {
-            synchronized (this) {
-                setComposition(null);
-                if (valid()) {
-                    getSurface().freeCache();
-                    getSurface().clearAll();
-                }
-            }
-        } else {
+        FrameStateListener listener;
+        synchronized (this) {
+            listener = advanceFrameGenerationLocked();
             setComposition(null);
             if (valid()) {
                 getSurface().freeCache();
                 getSurface().clearAll();
             }
         }
+        notifyFrameUnavailable(listener);
     }
 
     public void cancel() {
@@ -232,23 +209,24 @@ public class FlutterPagPlayer extends PAGPlayer {
 
     @Override
     public void release() {
-        super.release();
+        if (isRelease) return;
         animator.cancel();
         animator.removeAllUpdateListeners();
         animator.removeAllListeners();
-        //此处如果放入子线程处理，会打印gl的错误日志，挪到主线程
-        if (WorkThreadExecutor.multiThread) {
-            synchronized (this) {
-                surfaceLost = true;
-                if (getSurface() != null) getSurface().release();
-
-            }
-        } else {
+        // 此处如果放入子线程处理，会打印 GL 错误日志，保留调用方原有线程策略。
+        FrameStateListener listener;
+        synchronized (this) {
+            isRelease = true;
             surfaceLost = true;
-            if (getSurface() != null) getSurface().release();
-
+            listener = advanceFrameGenerationLocked();
+            PAGSurface oldSurface = getSurface();
+            super.setSurface(null);
+            if (oldSurface != null) {
+                oldSurface.release();
+            }
+            super.release();
         }
-        isRelease = true;
+        notifyFrameUnavailable(listener);
     }
 
     @Override
@@ -256,34 +234,60 @@ public class FlutterPagPlayer extends PAGPlayer {
         if (isRelease || surfaceLost) {
             return false;
         }
-        WorkThreadExecutor.getInstance().post(() -> {
-            if (WorkThreadExecutor.multiThread) {
-                synchronized (this) {
-                    if (isRelease || surfaceLost || getSurface() == null) {
-                        return;
-                    }
-                    try {
-                        FlutterPagPlayer.super.flush();
-                    } catch (Throwable t) {
-                        // 防御性兜底：极端情况下底层 surface 已无效但回调还未到达，避免触发原生崩溃
-                        Log.w(TAG, "flush failed, surface may be invalid", t);
-                    }
-                }
-            } else {
-                if (isRelease || surfaceLost || getSurface() == null) {
-                    return;
-                }
-                try {
-                    FlutterPagPlayer.super.flush();
-                } catch (Throwable t) {
-                    Log.w(TAG, "flush failed, surface may be invalid", t);
-                }
-            }
-
-        });
+        scheduleFlush(frameGeneration);
         return true;
+    }
 
-//        return super.flush();
+    private void scheduleFlush(final long generation) {
+        WorkThreadExecutor.getInstance().post(() -> renderFrame(generation));
+    }
+
+    private void renderFrame(long generation) {
+        boolean didFlush;
+        synchronized (this) {
+            if (isRelease || surfaceLost || getSurface() == null || frameGeneration != generation) {
+                return;
+            }
+            try {
+                didFlush = FlutterPagPlayer.super.flush();
+            } catch (Throwable t) {
+                // 极端情况下底层 Surface 已失效但生命周期回调尚未到达，继续显示占位内容。
+                Log.w(TAG, "flush failed, surface may be invalid", t);
+                return;
+            }
+        }
+        if (didFlush) {
+            markFrameReady(generation);
+        }
+    }
+
+    private FrameStateListener advanceFrameGenerationLocked() {
+        frameGeneration++;
+        if (!frameReady) {
+            return null;
+        }
+        frameReady = false;
+        return frameStateListener;
+    }
+
+    private void notifyFrameUnavailable(FrameStateListener listener) {
+        if (listener != null) {
+            listener.onFrameStateChanged(false);
+        }
+    }
+
+    private void markFrameReady(long generation) {
+        FrameStateListener listener = null;
+        synchronized (this) {
+            if (isRelease || surfaceLost || getSurface() == null || frameGeneration != generation || frameReady) {
+                return;
+            }
+            frameReady = true;
+            listener = frameStateListener;
+        }
+        if (listener != null) {
+            listener.onFrameStateChanged(true);
+        }
     }
 
     // 更新PAG渲染
