@@ -148,6 +148,7 @@ class PAGViewState extends State<PAGView> {
   static const String _nativeStart = 'start';
   static const String _nativeStop = 'stop';
   static const String _nativePause = 'pause';
+  static const String _nativePauseForLifecycle = 'pauseForLifecycle';
   static const String _nativeSetProgress = 'setProgress';
   static const String _nativeGetPointLayer = 'getLayersUnderPoint';
   static const String _nativeEnableCache = "enableCache";
@@ -227,12 +228,7 @@ class PAGViewState extends State<PAGView> {
     if (!mounted) return;
 
     if (!frameReady) {
-      _frameStateGeneration++;
-      if (!_nativeFrameReady && !_frameReady) return;
-      setState(() {
-        _nativeFrameReady = false;
-        _frameReady = false;
-      });
+      _resetFrameState();
       return;
     }
 
@@ -254,6 +250,15 @@ class PAGViewState extends State<PAGView> {
       setState(() {
         _frameReady = true;
       });
+    });
+  }
+
+  void _resetFrameState() {
+    _frameStateGeneration++;
+    if (!_nativeFrameReady && !_frameReady) return;
+    setState(() {
+      _nativeFrameReady = false;
+      _frameReady = false;
     });
   }
 
@@ -339,6 +344,26 @@ class PAGViewState extends State<PAGView> {
       return;
     }
     _channel.invokeMethod(_nativePause, {_argumentTextureId: _textureId});
+  }
+
+  /// 暂停生命周期播放，并让 Android Texture 重新等待下一次成功渲染。
+  ///
+  /// FlutterView 从原生容器移除时，SurfaceProducer 不一定回调 Surface 销毁。
+  /// 该方法会立即恢复默认占位，并在原生侧原子地暂停和作废旧首帧状态；下一次
+  /// [start] 会先提交新帧，收到原生成功回调后才重新显示 Texture。
+  void pauseForLifecycle() {
+    if (!_hasLoadTexture) {
+      return;
+    }
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      pause();
+      return;
+    }
+    _resetFrameState();
+    _channel.invokeMethod(
+      _nativePauseForLifecycle,
+      {_argumentTextureId: _textureId},
+    );
   }
 
   /// 设置进度

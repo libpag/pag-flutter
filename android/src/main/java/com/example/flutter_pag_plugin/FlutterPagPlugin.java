@@ -66,6 +66,7 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
     final static String _nativeStart = "start";
     final static String _nativeStop = "stop";
     final static String _nativePause = "pause";
+    final static String _nativePauseForLifecycle = "pauseForLifecycle";
     final static String _nativeSetProgress = "setProgress";
     final static String _nativeGetPointLayer = "getLayersUnderPoint";
     final static String _nativeEnableCache = "enableCache";
@@ -167,6 +168,10 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
                 break;
             case _nativePause:
                 pause(call);
+                result.success("");
+                break;
+            case _nativePauseForLifecycle:
+                pauseForLifecycle(call);
                 result.success("");
                 break;
             case _nativeSetProgress:
@@ -549,6 +554,13 @@ public class FlutterPagPlugin implements FlutterPlugin, MethodCallHandler {
         FlutterPagPlayer flutterPagPlayer = getFlutterPagPlayer(call);
         if (flutterPagPlayer != null) {
             flutterPagPlayer.pause();
+        }
+    }
+
+    void pauseForLifecycle(MethodCall call) {
+        FlutterPagPlayer flutterPagPlayer = getFlutterPagPlayer(call);
+        if (flutterPagPlayer != null) {
+            flutterPagPlayer.pauseForLifecycle();
         }
     }
 

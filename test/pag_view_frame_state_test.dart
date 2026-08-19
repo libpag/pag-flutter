@@ -13,11 +13,14 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late int viewId;
+  final methodCalls = <MethodCall>[];
 
   setUp(() {
     PAG.enableCheckAvailable(true);
+    methodCalls.clear();
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_channel, (call) async {
+      methodCalls.add(call);
       if (call.method == 'initPag') {
         viewId = call.arguments['viewId'] as int;
         return <String, Object>{
@@ -136,12 +139,50 @@ void main() {
     expect(find.byType(Texture), findsOneWidget);
     debugDefaultTargetPlatformOverride = null;
   });
+
+  testWidgets(
+    'Android lifecycle pause restores fallback until a fresh frame is ready',
+    (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      final pagKey = GlobalKey<PAGViewState>();
+
+      await tester.pumpWidget(_buildPagView(key: pagKey));
+      await tester.pump();
+      await _sendFrameState(viewId, 'onFrameReady');
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.byKey(const Key('fallback')), findsNothing);
+
+      pagKey.currentState!.pauseForLifecycle();
+      await tester.pump();
+
+      expect(find.byKey(const Key('fallback')), findsOneWidget);
+      expect(find.byType(Texture), findsOneWidget);
+      expect(
+        methodCalls.where((call) => call.method == 'pauseForLifecycle'),
+        hasLength(1),
+      );
+
+      pagKey.currentState!.start();
+      await _sendFrameState(viewId, 'onFrameReady');
+      await tester.pump();
+
+      expect(find.byKey(const Key('fallback')), findsOneWidget);
+
+      await tester.pump();
+
+      expect(find.byKey(const Key('fallback')), findsNothing);
+      debugDefaultTargetPlatformOverride = null;
+    },
+  );
 }
 
-Widget _buildPagView() {
+Widget _buildPagView({Key? key}) {
   return MaterialApp(
     home: PAGView.bytes(
       Uint8List.fromList(const [1, 2, 3]),
+      key: key,
       width: 100,
       height: 60,
       defaultBuilder: (_) =>

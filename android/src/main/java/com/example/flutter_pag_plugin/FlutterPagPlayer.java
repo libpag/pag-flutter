@@ -106,6 +106,9 @@ public class FlutterPagPlayer extends PAGPlayer {
     }
 
     public void start() {
+        // 生命周期恢复时旧首帧已失效。先提交当前进度的新帧，确保即使动画 ticker
+        // 尚未产生下一次回调，也能重新发出 onFrameReady。
+        flush();
         animator.start();
     }
 
@@ -205,6 +208,19 @@ public class FlutterPagPlayer extends PAGPlayer {
 
     public void pause() {
         animator.pause();
+    }
+
+    /**
+     * 原生容器暂停/移除 FlutterView 时，SurfaceProducer 不一定回调 Surface 销毁。
+     * 因此需要原子地暂停动画并作废当前首帧，防止恢复时暴露旧 Surface 的黑色缓冲。
+     */
+    public void pauseForLifecycle() {
+        animator.pause();
+        FrameStateListener listener;
+        synchronized (this) {
+            listener = advanceFrameGenerationLocked();
+        }
+        notifyFrameUnavailable(listener);
     }
 
     @Override
