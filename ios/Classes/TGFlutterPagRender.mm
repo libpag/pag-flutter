@@ -15,6 +15,7 @@
 #import <UIKit/UIKit.h>
 #include <libpag/PAGPlayer.h>
 #include <chrono>
+#include <cmath>
 #include <mutex>
 
 @interface TGFlutterPagRender()
@@ -48,6 +49,15 @@ static int64_t GetCurrentTimeUS() {
     int _repeatCount;
     int64_t start;
     int64_t _currRepeatCount;
+    BOOL _playbackEnded;
+    // Serializes access to the timeline state (start, _currRepeatCount, _endEvent,
+    // _playbackEnded). copyPixelBuffer runs on the Flutter raster thread while the
+    // control methods run on the platform thread and the setup runs on a worker
+    // queue, so these ivars need a lock. A dedicated lock is used instead of
+    // @synchronized(self) because setUpWithPagData holds the self monitor for the
+    // whole PAGFile load, and the raster thread must not stall behind file loading.
+    // The lock is never held across PAGPlayer/PAGFile calls.
+    NSLock *_timelineLock;
 }
 
 - (CVPixelBufferRef)copyPixelBuffer {
@@ -58,25 +68,37 @@ static int64_t GetCurrentTimeUS() {
     }
 
     int64_t timestamp = GetCurrentTimeUS();
+    double value = 0;
+    BOOL fireEndEvent = NO;
+    BOOL fireRepeatEvent = NO;
+    [_timelineLock lock];
     if(start <= 0){
         start = timestamp;
     }
     auto count = (timestamp - start) / duration;
-    double value = 0;
     if (_repeatCount >= 0 && count >= _repeatCount) {
         value = 1;
         if(!_endEvent){
             _endEvent = YES;
-            _eventCallback(EventEnd);
+            _playbackEnded = YES;
+            fireEndEvent = YES;
         }
     } else {
         _endEvent = NO;
+        _playbackEnded = NO;
         double playTime = (timestamp - start) % duration;
         value = static_cast<double>(playTime) / duration;
         if (_currRepeatCount < count) {
             _currRepeatCount = count;
-            _eventCallback(EventRepeat);
+            fireRepeatEvent = YES;
         }
+    }
+    [_timelineLock unlock];
+    if (fireEndEvent) {
+        _eventCallback(EventEnd);
+    }
+    if (fireRepeatEvent) {
+        _eventCallback(EventRepeat);
     }
     [_player setProgress:value];
     [_player flush];
@@ -89,6 +111,7 @@ static int64_t GetCurrentTimeUS() {
 {
     if (self = [super init]) {
         _textureId = @-1;
+        _timelineLock = [[NSLock alloc] init];
     }
     return self;
 }
@@ -124,9 +147,7 @@ static int64_t GetCurrentTimeUS() {
     [_player setComposition:_pagFile];
     _surface = [PAGSurface MakeOffscreen:CGSizeMake(_pagFile.width, _pagFile.height)];
     [_player setSurface:_surface];
-    [self syncTimelineToProgress:_initProgress];
-    [_player setProgress: _initProgress];
-    [_player flush];
+    [self applyProgress:_initProgress];
     _frameUpdateCallback();
 }
 
@@ -136,8 +157,31 @@ static int64_t GetCurrentTimeUS() {
         _displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(update)];
         [_displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSRunLoopCommonModes];
     }
-    if(start <= 0){
-       start = GetCurrentTimeUS();
+    int64_t duration = [_player duration];
+    if (duration > 0) {
+        int64_t timestamp = GetCurrentTimeUS();
+        double frozenProgress = [_player getProgress];
+        [_timelineLock lock];
+        if (_playbackEnded) {
+            // The animation finished and the timeline is pinned at the end. Restart
+            // from the beginning, matching Android's animator.start() on an ended
+            // animation.
+            start = timestamp;
+            _currRepeatCount = 0;
+            _playbackEnded = NO;
+            _endEvent = NO;
+        } else if (start > 0) {
+            // Re-anchor the timeline base to the frozen progress (plus the rounds
+            // already played) so resuming does not skip the wall-clock time elapsed
+            // while paused or stopped. This is the counterpart of Android's
+            // animator.pause()/start() semantics.
+            start = timestamp - static_cast<int64_t>((_currRepeatCount + frozenProgress) * duration);
+        } else {
+            start = timestamp;
+        }
+        [_timelineLock unlock];
+    } else if (start <= 0) {
+        start = GetCurrentTimeUS();
     }
     _eventCallback(EventStart);
 }
@@ -148,12 +192,16 @@ static int64_t GetCurrentTimeUS() {
         [_displayLink invalidate];
         _displayLink = nil;
     }
-    [self syncTimelineToProgress:_initProgress];
-    [_player setProgress:_initProgress];
-    [_player flush];
+    [self applyProgress:_initProgress];
     _frameUpdateCallback();
+    BOOL fireEndEvent = NO;
+    [_timelineLock lock];
     if(!_endEvent){
         _endEvent = YES;
+        fireEndEvent = YES;
+    }
+    [_timelineLock unlock];
+    if (fireEndEvent) {
         _eventCallback(EventEnd);
     }
     _eventCallback(EventCancel);
@@ -164,36 +212,54 @@ static int64_t GetCurrentTimeUS() {
         [_displayLink invalidate];
         _displayLink = nil;
     }
-    // The timeline advances by wall-clock time, so freeze it at the paused
-    // progress. Otherwise a later startRender resumes from the wall clock and
-    // skips the time elapsed while paused.
-    [self syncTimelineToProgress:[_player getProgress]];
+    // The timeline is re-anchored to the frozen progress in startRender on
+    // resume, so there is nothing to adjust here.
 }
 - (void)setRepeatCount:(int)repeatCount{
     _repeatCount = repeatCount;
 }
 
 - (void)setProgress:(double)progress{
-    progress = MAX(0.0, MIN(1.0, progress));
-    [self syncTimelineToProgress:progress];
-    [_player setProgress:progress];
-    [_player flush];
+    [self applyProgress:progress];
     _frameUpdateCallback();
 }
 
+// Single entry point for every externally requested progress change (Dart
+// setProgress, stop, and initial setup). It clamps the value, aligns the
+// wall-clock timeline with it, and pushes it to the player. copyPixelBuffer
+// recomputes the progress from the timeline on every rendered frame, so
+// skipping any of these steps lets the next frame overwrite the requested
+// value. NaN is mapped to 0 because the clamp macros do not reject it.
+- (void)applyProgress:(double)progress {
+    if (std::isnan(progress)) {
+        progress = 0.0;
+    }
+    progress = std::fmax(0.0, std::fmin(1.0, progress));
+    [self syncTimelineToProgress:progress];
+    [_player setProgress:progress];
+    [_player flush];
+}
+
 // copyPixelBuffer derives the play progress from wall-clock time. Align the
-// timeline base with the requested progress (equivalent to Android's
+// timeline base with the requested progress (the counterpart of Android's
 // animator.setCurrentPlayTime) so the next rendered frame advances from the
 // set progress instead of overwriting it with the stale timeline.
 - (void)syncTimelineToProgress:(double)progress {
     int64_t duration = [_player duration];
     if (duration <= 0) {
+        [_timelineLock lock];
         start = -1;
+        [_timelineLock unlock];
         return;
     }
     int64_t playedTime = static_cast<int64_t>(progress * duration);
+    [_timelineLock lock];
     start = GetCurrentTimeUS() - playedTime;
     _currRepeatCount = playedTime / duration;
+    // A reposition invalidates the ended state, so a later start resumes from
+    // the new progress instead of replaying from the beginning.
+    _playbackEnded = NO;
+    [_timelineLock unlock];
 }
 
 - (NSArray<NSString *> *)getLayersUnderPoint:(CGPoint)point{
@@ -239,15 +305,11 @@ static int64_t GetCurrentTimeUS() {
 
 /// 清除Pagrender时序
 - (void)clearPagState {
-    if ([[TGFlutterWorkerExecutor sharedInstance] enableMultiThread]) {
-        @synchronized(self) {
-            start = -1;
-            _endEvent = NO;
-        }
-    } else{
-        start = -1;
-        _endEvent = NO;
-    }
+    [_timelineLock lock];
+    start = -1;
+    _endEvent = NO;
+    _playbackEnded = NO;
+    [_timelineLock unlock];
 }
 
 - (void)dealloc {
