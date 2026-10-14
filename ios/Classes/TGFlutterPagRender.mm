@@ -50,6 +50,10 @@ static int64_t GetCurrentTimeUS() {
     int64_t start;
     int64_t _currRepeatCount;
     BOOL _playbackEnded;
+    // The timeline base can legitimately be negative (the process is younger than
+    // the anchored play time), so a flag, not the sign of start, marks whether the
+    // timeline has been initialized.
+    BOOL _timelineInitialized;
     // Serializes access to the timeline state (start, _currRepeatCount, _endEvent,
     // _playbackEnded). copyPixelBuffer runs on the Flutter raster thread while the
     // control methods run on the platform thread and the setup runs on a worker
@@ -72,8 +76,9 @@ static int64_t GetCurrentTimeUS() {
     BOOL fireEndEvent = NO;
     BOOL fireRepeatEvent = NO;
     [_timelineLock lock];
-    if(start <= 0){
+    if(!_timelineInitialized){
         start = timestamp;
+        _timelineInitialized = YES;
     }
     auto count = (timestamp - start) / duration;
     if (_repeatCount >= 0 && count >= _repeatCount) {
@@ -170,18 +175,22 @@ static int64_t GetCurrentTimeUS() {
             _currRepeatCount = 0;
             _playbackEnded = NO;
             _endEvent = NO;
-        } else if (start > 0) {
+        } else {
             // Re-anchor the timeline base to the frozen progress (plus the rounds
             // already played) so resuming does not skip the wall-clock time elapsed
-            // while paused or stopped. This is the counterpart of Android's
-            // animator.pause()/start() semantics.
+            // while paused or stopped, and an animation that was never started begins
+            // from its initial progress. This is the counterpart of Android's
+            // animator.setCurrentPlayTime/pause/start semantics. The re-anchor also
+            // covers a base that is negative because the process is younger than the
+            // anchored play time: the round count stays correct because it is
+            // derived from (timestamp - start).
             start = timestamp - static_cast<int64_t>((_currRepeatCount + frozenProgress) * duration);
-        } else {
-            start = timestamp;
         }
+        _timelineInitialized = YES;
         [_timelineLock unlock];
     } else if (start <= 0) {
         start = GetCurrentTimeUS();
+        _timelineInitialized = YES;
     }
     _eventCallback(EventStart);
 }
@@ -256,6 +265,7 @@ static int64_t GetCurrentTimeUS() {
     [_timelineLock lock];
     start = GetCurrentTimeUS() - playedTime;
     _currRepeatCount = playedTime / duration;
+    _timelineInitialized = YES;
     // A reposition invalidates the ended state, so a later start resumes from
     // the new progress instead of replaying from the beginning.
     _playbackEnded = NO;
@@ -307,6 +317,7 @@ static int64_t GetCurrentTimeUS() {
 - (void)clearPagState {
     [_timelineLock lock];
     start = -1;
+    _timelineInitialized = NO;
     _endEvent = NO;
     _playbackEnded = NO;
     [_timelineLock unlock];
