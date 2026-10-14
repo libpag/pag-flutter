@@ -124,6 +124,7 @@ static int64_t GetCurrentTimeUS() {
     [_player setComposition:_pagFile];
     _surface = [PAGSurface MakeOffscreen:CGSizeMake(_pagFile.width, _pagFile.height)];
     [_player setSurface:_surface];
+    [self syncTimelineToProgress:_initProgress];
     [_player setProgress: _initProgress];
     [_player flush];
     _frameUpdateCallback();
@@ -147,6 +148,7 @@ static int64_t GetCurrentTimeUS() {
         [_displayLink invalidate];
         _displayLink = nil;
     }
+    [self syncTimelineToProgress:_initProgress];
     [_player setProgress:_initProgress];
     [_player flush];
     _frameUpdateCallback();
@@ -162,15 +164,36 @@ static int64_t GetCurrentTimeUS() {
         [_displayLink invalidate];
         _displayLink = nil;
     }
+    // The timeline advances by wall-clock time, so freeze it at the paused
+    // progress. Otherwise a later startRender resumes from the wall clock and
+    // skips the time elapsed while paused.
+    [self syncTimelineToProgress:[_player getProgress]];
 }
 - (void)setRepeatCount:(int)repeatCount{
     _repeatCount = repeatCount;
 }
 
 - (void)setProgress:(double)progress{
+    progress = MAX(0.0, MIN(1.0, progress));
+    [self syncTimelineToProgress:progress];
     [_player setProgress:progress];
     [_player flush];
     _frameUpdateCallback();
+}
+
+// copyPixelBuffer derives the play progress from wall-clock time. Align the
+// timeline base with the requested progress (equivalent to Android's
+// animator.setCurrentPlayTime) so the next rendered frame advances from the
+// set progress instead of overwriting it with the stale timeline.
+- (void)syncTimelineToProgress:(double)progress {
+    int64_t duration = [_player duration];
+    if (duration <= 0) {
+        start = -1;
+        return;
+    }
+    int64_t playedTime = static_cast<int64_t>(progress * duration);
+    start = GetCurrentTimeUS() - playedTime;
+    _currRepeatCount = playedTime / duration;
 }
 
 - (NSArray<NSString *> *)getLayersUnderPoint:(CGPoint)point{
