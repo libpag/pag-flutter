@@ -166,7 +166,7 @@ static int64_t GetCurrentTimeUS() {
     [_player setComposition:_pagFile];
     _surface = [PAGSurface MakeOffscreen:CGSizeMake(_pagFile.width, _pagFile.height)];
     [_player setSurface:_surface];
-    [self applyProgress:_initProgress];
+    [self applyProgress:_initProgress hold:NO];
     _frameUpdateCallback();
 }
 
@@ -213,8 +213,11 @@ static int64_t GetCurrentTimeUS() {
     // Read the pre-switch state and move to the held position in applyProgress's
     // single critical section. Doing the read here under a separate lock would let
     // the raster thread transition Playing -> Ended (and fire EventEnd) in between,
-    // making stopRender fire a second EventEnd off a stale read.
-    TGPagPlaybackState previousState = [self applyProgress:_initProgress];
+    // making stopRender fire a second EventEnd off a stale read. hold:YES forces the
+    // frozen (Stopped) state even when stopping mid-play, so the frame pins at
+    // initProgress, a later start() re-anchors cleanly instead of fast-forwarding by
+    // the stop->start wall-clock gap, and copyPixelBuffer can no longer end again.
+    TGPagPlaybackState previousState = [self applyProgress:_initProgress hold:YES];
     _frameUpdateCallback();
     if (previousState != TGPagPlaybackEnded) {
         _eventCallback(EventEnd);
@@ -254,7 +257,7 @@ static int64_t GetCurrentTimeUS() {
 }
 
 - (void)setProgress:(double)progress{
-    [self applyProgress:progress];
+    [self applyProgress:progress hold:NO];
     _frameUpdateCallback();
 }
 
@@ -271,13 +274,15 @@ static int64_t GetCurrentTimeUS() {
 // single value (playedTime / duration) rather than carried separately, which
 // is what previously double-counted at progress == 1.0. A set made while
 // playing re-anchors the live timeline so playback continues from the new
-// value; a set made while held/ended repositions the held state so a later
-// start() resumes from it (one place clears the ended state, so it cannot be
-// left stale).
+// value. hold:NO keeps a live set live: a set made while playing re-anchors the
+// running timeline so playback continues from the new value (Dart setProgress
+// mid-play); a set made while held/ended repositions the held state. hold:YES
+// forces the frozen (Stopped) state regardless of the current state, which is
+// what stop needs so the animation does not keep advancing after it was stopped.
 // Returns the state observed before the switch so callers (stopRender) can make
 // the exactly-once EventEnd decision from the same critical section that performs
 // the switch, instead of a separate racy read.
-- (TGPagPlaybackState)applyProgress:(double)progress {
+- (TGPagPlaybackState)applyProgress:(double)progress hold:(BOOL)hold {
     if (std::isnan(progress)) {
         progress = 0.0;
     }
@@ -287,7 +292,7 @@ static int64_t GetCurrentTimeUS() {
     int64_t timestamp = GetCurrentTimeUS();
     [_timelineLock lock];
     TGPagPlaybackState previousState = _state;
-    if (_state == TGPagPlaybackPlaying) {
+    if (!hold && _state == TGPagPlaybackPlaying) {
         start = timestamp - playedTime;
     } else {
         _heldElapsed = playedTime;
