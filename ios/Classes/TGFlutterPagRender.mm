@@ -210,12 +210,13 @@ static int64_t GetCurrentTimeUS() {
         [_displayLink invalidate];
         _displayLink = nil;
     }
-    [_timelineLock lock];
-    BOOL alreadyEnded = (_state == TGPagPlaybackEnded);
-    [_timelineLock unlock];
-    [self applyProgress:_initProgress];
+    // Read the pre-switch state and move to the held position in applyProgress's
+    // single critical section. Doing the read here under a separate lock would let
+    // the raster thread transition Playing -> Ended (and fire EventEnd) in between,
+    // making stopRender fire a second EventEnd off a stale read.
+    TGPagPlaybackState previousState = [self applyProgress:_initProgress];
     _frameUpdateCallback();
-    if (!alreadyEnded) {
+    if (previousState != TGPagPlaybackEnded) {
         _eventCallback(EventEnd);
     }
     _eventCallback(EventCancel);
@@ -273,7 +274,10 @@ static int64_t GetCurrentTimeUS() {
 // value; a set made while held/ended repositions the held state so a later
 // start() resumes from it (one place clears the ended state, so it cannot be
 // left stale).
-- (void)applyProgress:(double)progress {
+// Returns the state observed before the switch so callers (stopRender) can make
+// the exactly-once EventEnd decision from the same critical section that performs
+// the switch, instead of a separate racy read.
+- (TGPagPlaybackState)applyProgress:(double)progress {
     if (std::isnan(progress)) {
         progress = 0.0;
     }
@@ -282,6 +286,7 @@ static int64_t GetCurrentTimeUS() {
     int64_t playedTime = (duration > 0) ? static_cast<int64_t>(progress * duration) : 0;
     int64_t timestamp = GetCurrentTimeUS();
     [_timelineLock lock];
+    TGPagPlaybackState previousState = _state;
     if (_state == TGPagPlaybackPlaying) {
         start = timestamp - playedTime;
     } else {
@@ -292,6 +297,7 @@ static int64_t GetCurrentTimeUS() {
     [_timelineLock unlock];
     [_player setProgress:progress];
     [_player flush];
+    return previousState;
 }
 
 - (NSArray<NSString *> *)getLayersUnderPoint:(CGPoint)point{
