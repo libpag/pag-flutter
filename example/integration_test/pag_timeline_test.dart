@@ -159,6 +159,37 @@ void main() {
         reason: 'replay must emit exactly one End');
   });
 
+  testWidgets('a second stop emits no extra End but still emits Cancel',
+      (WidgetTester tester) async {
+    await mountPag(tester);
+    final state = stateOf();
+    final d = await calibrate(tester);
+
+    state.setProgress(0);
+    state.start();
+    await waitReal(tester, Duration(milliseconds: (d * 0.4).round()));
+
+    final endBeforeStop = ends.length;
+    final cancelBeforeStop = cancels.length;
+
+    // First stop mid-play: exactly one End and one Cancel.
+    state.stop();
+    await waitReal(tester, const Duration(milliseconds: 300));
+    expect(ends.length, endBeforeStop + 1,
+        reason: 'first stop must emit exactly one End');
+    expect(cancels.length, cancelBeforeStop + 1,
+        reason: 'first stop must emit exactly one Cancel');
+
+    // Second stop with no start() in between: End must not fire again (stop is
+    // idempotent for onAnimationEnd), while Cancel is still emitted each time.
+    state.stop();
+    await waitReal(tester, const Duration(milliseconds: 300));
+    expect(ends.length, endBeforeStop + 1,
+        reason: 'a repeated stop must not emit a duplicate End');
+    expect(cancels.length, cancelBeforeStop + 2,
+        reason: 'each stop still emits a Cancel');
+  });
+
   testWidgets('pause then resume continues from the paused position',
       (WidgetTester tester) async {
     await mountPag(tester);

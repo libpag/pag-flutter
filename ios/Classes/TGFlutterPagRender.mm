@@ -66,8 +66,16 @@ static int64_t GetCurrentTimeUS() {
     // the round count on top of it (which double-counted at progress == 1.0).
     int64_t _heldElapsed;
     TGPagPlaybackState _state;
+    // Whether an onAnimationEnd has already been emitted for the current playback
+    // episode. The lifecycle enum cannot carry this on its own: a single Stopped
+    // state is reached both by stop() (which emits End) and by pause()/setProgress()
+    // (which do not), so without a separate flag a second stop()-or a stop() after
+    // the animation already ended-would emit a duplicate onAnimationEnd. It is set
+    // when copyPixelBuffer reaches the natural end and when stopRender emits End,
+    // and cleared whenever playback (re)starts.
+    BOOL _endFired;
     // Serializes access to the timeline state (start, _currRepeatCount,
-    // _heldElapsed, _state). copyPixelBuffer runs on the Flutter raster thread
+    // _heldElapsed, _state, _endFired). copyPixelBuffer runs on the Flutter raster thread
     // while the control methods run on the platform thread and the setup runs on
     // a worker queue, so these ivars need a lock. A dedicated lock is used instead
     // of @synchronized(self) because setUpWithPagData holds the self monitor for
@@ -91,6 +99,7 @@ static int64_t GetCurrentTimeUS() {
     if (_state == TGPagPlaybackUninitialized) {
         start = timestamp;
         _currRepeatCount = 0;
+        _endFired = NO;
         _state = TGPagPlaybackPlaying;
     }
     // While held (Stopped/Ended) the frame is pinned to the frozen elapsed time,
@@ -102,6 +111,7 @@ static int64_t GetCurrentTimeUS() {
         if (_state == TGPagPlaybackPlaying) {
             _state = TGPagPlaybackEnded;
             _heldElapsed = static_cast<int64_t>(_repeatCount) * duration;
+            _endFired = YES;
             fireEndEvent = YES;
         }
     } else {
@@ -200,6 +210,7 @@ static int64_t GetCurrentTimeUS() {
             break;
     }
     _state = TGPagPlaybackPlaying;
+    _endFired = NO;
     [_timelineLock unlock];
     _eventCallback(EventStart);
 }
@@ -210,16 +221,19 @@ static int64_t GetCurrentTimeUS() {
         [_displayLink invalidate];
         _displayLink = nil;
     }
-    // Read the pre-switch state and move to the held position in applyProgress's
-    // single critical section. Doing the read here under a separate lock would let
-    // the raster thread transition Playing -> Ended (and fire EventEnd) in between,
-    // making stopRender fire a second EventEnd off a stale read. hold:YES forces the
-    // frozen (Stopped) state even when stopping mid-play, so the frame pins at
-    // initProgress, a later start() re-anchors cleanly instead of fast-forwarding by
-    // the stop->start wall-clock gap, and copyPixelBuffer can no longer end again.
-    TGPagPlaybackState previousState = [self applyProgress:_initProgress hold:YES];
+    // Freeze to the held position and decide the exactly-once EventEnd in
+    // applyProgress's single critical section. Reading the state here under a
+    // separate lock would let the raster thread transition Playing -> Ended (and
+    // fire EventEnd) in between, making stopRender fire a second EventEnd off a
+    // stale read; checking and setting _endFired inside that one critical section
+    // also makes a second stop() (or a stop() after a natural end) a no-op for
+    // EventEnd. hold:YES forces the frozen (Stopped) state even when stopping
+    // mid-play, so the frame pins at initProgress, a later start() re-anchors
+    // cleanly instead of fast-forwarding by the stop->start wall-clock gap, and
+    // copyPixelBuffer can no longer end again. EventCancel is always emitted.
+    BOOL shouldFireEnd = [self applyProgress:_initProgress hold:YES];
     _frameUpdateCallback();
-    if (previousState != TGPagPlaybackEnded) {
+    if (shouldFireEnd) {
         _eventCallback(EventEnd);
     }
     _eventCallback(EventCancel);
@@ -279,10 +293,12 @@ static int64_t GetCurrentTimeUS() {
 // mid-play); a set made while held/ended repositions the held state. hold:YES
 // forces the frozen (Stopped) state regardless of the current state, which is
 // what stop needs so the animation does not keep advancing after it was stopped.
-// Returns the state observed before the switch so callers (stopRender) can make
-// the exactly-once EventEnd decision from the same critical section that performs
-// the switch, instead of a separate racy read.
-- (TGPagPlaybackState)applyProgress:(double)progress hold:(BOOL)hold {
+// For the stop path (hold:YES) it also performs the exactly-once EventEnd
+// check-and-set on _endFired inside the same critical section that performs the
+// switch, and returns whether the caller (stopRender) should emit EventEnd, so a
+// repeated stop or a stop after a natural end does not emit a duplicate End and
+// no separate racy read is needed. hold:NO always returns NO.
+- (BOOL)applyProgress:(double)progress hold:(BOOL)hold {
     if (std::isnan(progress)) {
         progress = 0.0;
     }
@@ -290,11 +306,15 @@ static int64_t GetCurrentTimeUS() {
     int64_t duration = [_player duration];
     int64_t playedTime = (duration > 0) ? static_cast<int64_t>(progress * duration) : 0;
     int64_t timestamp = GetCurrentTimeUS();
+    BOOL shouldFireEnd = NO;
     [_timelineLock lock];
-    TGPagPlaybackState previousState = _state;
     if (!hold && _state == TGPagPlaybackPlaying) {
         start = timestamp - playedTime;
     } else {
+        if (hold) {
+            shouldFireEnd = !_endFired;
+            _endFired = YES;
+        }
         _heldElapsed = playedTime;
         _state = TGPagPlaybackStopped;
     }
@@ -302,7 +322,7 @@ static int64_t GetCurrentTimeUS() {
     [_timelineLock unlock];
     [_player setProgress:progress];
     [_player flush];
-    return previousState;
+    return shouldFireEnd;
 }
 
 - (NSArray<NSString *> *)getLayersUnderPoint:(CGPoint)point{
@@ -352,6 +372,7 @@ static int64_t GetCurrentTimeUS() {
     _state = TGPagPlaybackUninitialized;
     _heldElapsed = 0;
     _currRepeatCount = 0;
+    _endFired = NO;
     [_timelineLock unlock];
 }
 
